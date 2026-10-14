@@ -105,6 +105,14 @@ and Canada — where exactly one carrier offers it, in one province.
 | [08-roadmap.md](08-roadmap.md) | **The roadmap.** Five phases, one hard exit gate each, layer × phase matrix, critical path, risk register. |
 | [09-build-vs-whitelabel.md](09-build-vs-whitelabel.md) | Own-design vs ODM rebadge vs white-label vs software-only, costed for an in-house-EE team. |
 | [slides/main.tex](slides/main.tex) | The same roadmap as an internal **engineering** deck (not an investor pitch). `make slides`. |
+| [prototype/](prototype/) | **A working end-to-end slice of the recommended wedge.** Zephyr firmware → LoRaWAN codec → simulated fleet → detection → insurer API → dashboard. 312 passing tests; `cd prototype && make e2e`. |
+
+The prototype is where the pack stops asserting and starts measuring, and it has already corrected
+two things in these documents: application **A4**'s "free upside" framing (§2.2 of
+[02](02-application-portfolio.md)), and two Zephyr symbol names that upstream has since renamed.
+Its headline number is the P1 exit gate from [08](08-roadmap.md): **0.3383 nuisance alerts per
+device-year against a < 0.50 gate — PASS**, with freeze recall of 9/31 and leak recall of 1/4
+reported as the honest cost. Details in [prototype/README.md](prototype/README.md).
 
 Machine-readable: `data/repos.csv` (89 repos with verified licences), `data/application-scores.csv`,
 `data/cert-costs.csv`, `data/bom-estimates.csv`.

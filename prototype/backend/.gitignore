@@ -1,0 +1,5 @@
+# Runtime artefacts of the backend. The default database path is
+# backend/leakwatch.db (see app/db.py); -wal and -shm are its WAL sidecars.
+leakwatch.db
+leakwatch.db-wal
+leakwatch.db-shm

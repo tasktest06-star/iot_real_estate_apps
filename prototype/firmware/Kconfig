@@ -1,0 +1,259 @@
+# Kconfig — application tunables for the clamp-on thermal leak sensor.
+#
+# Every number the firmware behaviour depends on lives here rather than as a
+# literal in a .c file, for one specific reason: the P1 field trial
+# (08-roadmap.md §3, "P1 — Prove the alert") is a parameter sweep. The
+# nuisance-alert rate is the gate, the dwell window is the main knob, and a knob
+# you have to recompile a source file to turn does not get turned.
+#
+# The pure-logic modules (leak_detect.c, uplink.c, valve.c, install_probe.c) do
+# NOT read these symbols. main() copies them into the *_cfg structs those
+# modules take as arguments, which is what keeps those four files free of any
+# build-system dependency and host-testable. Do not add a CONFIG_ reference to
+# any of them.
+
+mainmenu "Clamp-on thermal water-leak sensor"
+
+menu "Leak sensor application"
+
+config APP_SAMPLE_PERIOD_S
+	int "Sensor sample period, seconds"
+	default 60
+	range 10 900
+	help
+	  How often the two TMP117s are read and the detector is run. This is
+	  deliberately much faster than the uplink heartbeat: the detection
+	  decision is local (04-connectivity.md §4.2) so it must not be limited to
+	  the radio's cadence, and a 15-minute detector could not resolve a dwell
+	  window at all.
+
+config APP_HEARTBEAT_MIN
+	int "Default uplink heartbeat, minutes"
+	default 15
+	range 1 240
+	help
+	  Default only. The backend can change it at runtime within
+	  contracts/INTERFACES.md §2's 1..240 via the set_heartbeat downlink, and
+	  the new value is persisted to NVS. 15 minutes is the figure the
+	  connectivity analysis uses when it computes the worst-case cloud-shutoff
+	  latency that justifies deciding locally.
+
+config APP_MIN_UPLINK_INTERVAL_S
+	int "Minimum spacing between non-heartbeat uplinks, seconds"
+	default 300
+	range 30 3600
+	help
+	  Rate limit on threshold frames. A verdict oscillating around a threshold
+	  must not become a transmit storm: on a primary cell that is a battery
+	  fault, and on a shared gateway it is somebody else's outage.
+
+config APP_LEAK_DWELL_S
+	int "Leak dwell window, seconds"
+	default 1800
+	range 60 14400
+	help
+	  How long a negative delta excursion must persist before it is called
+	  leak_suspected. THE nuisance-rate knob, and the thing the P1 gate
+	  (<0.5 nuisance alerts/device-year) is actually measuring. The default is
+	  30 minutes: longer than the longest ordinary draw-off in the simulator's
+	  scenario set (shower_morning, appliance_use) and much shorter than the
+	  hours a slow leak takes to become expensive.
+
+config APP_LEAK_EXCURSION_CC
+	int "Excursion threshold below baseline, centi-degrees C"
+	default 150
+	range 20 2000
+	help
+	  How far below the learned per-device baseline the delta must fall to open
+	  an excursion. Not a global temperature threshold: the baseline adapts per
+	  device because housing stock varies (contracts/INTERFACES.md §5
+	  behaviour 5).
+
+config APP_FREEZE_CC
+	int "Freeze-risk threshold, centi-degrees C"
+	default 400
+	range -1000 1500
+	help
+	  Pipe temperature at or below which the detector reports freeze_risk and
+	  the uplink sets the cold_warning flag. One threshold drives both so that
+	  the wire flag and the local verdict can never disagree. Application A4 —
+	  free upside on the same sensor.
+
+config APP_INSTALL_PROBE_SAMPLES
+	int "Install probe duration, 1 Hz samples"
+	default 60
+	range 20 300
+	help
+	  How long the install verification watches the two channels while the
+	  installer runs the nearest fixture. Install-verification telemetry is a
+	  hard product requirement (08-roadmap.md P1, §8 risk 4), and 60 s is about
+	  as long as an installer will actually hold a tap open.
+
+config APP_BLE_WINDOW_S
+	int "BLE commissioning/recovery advertising window, seconds"
+	default 600
+	range 30 3600
+	depends on BT
+	help
+	  How long connectable advertising stays up after boot or after a press of
+	  the recovery reed switch. Time-boxed rather than permanent for two
+	  reasons: continuous connectable advertising is a measurable power line
+	  item on a five-year primary cell, and an always-on BLE interface that can
+	  reflash a device controlling a water main is attack surface sitting in a
+	  basement for a decade.
+
+config APP_WORKQ_STACK_SIZE
+	int "Application work queue stack size"
+	default 3072
+	help
+	  The application work queue runs the blocking lorawan_send(), which is why
+	  it is separate from the system work queue that the BLE host and the
+	  settings subsystem share.
+
+config APP_JOIN_BACKOFF_MIN_S
+	int "Initial OTAA join retry backoff, seconds"
+	default 30
+	range 10 600
+
+config APP_JOIN_BACKOFF_MAX_S
+	int "Maximum OTAA join retry backoff, seconds"
+	default 3600
+	range 60 86400
+	help
+	  US915 join against a gateway serving one sub-band is routinely slow,
+	  because the device sweeps 72 channels and only 8 are listened to. Backing
+	  off to an hour is a battery decision, not a politeness one.
+
+config APP_WDT_TIMEOUT_MS
+	int "Task watchdog timeout, milliseconds"
+	default 300000
+	help
+	  Must comfortably exceed APP_SAMPLE_PERIOD_S, since the sample work
+	  handler is what feeds it. Default is 5 minutes against a 60 s sample.
+
+config APP_BATT_DIVIDER_NUM
+	int "Battery divider ratio numerator"
+	default 1
+	help
+	  Measured battery voltage is (adc_mv * NUM) / DEN. Both default to 1,
+	  i.e. no divider, because the correct values are a property of the
+	  specific carrier board's resistors and MUST be taken from its schematic
+	  and then checked against a meter. A wrong ratio here does not fail
+	  loudly; it silently mis-reports the battery column that 08-roadmap.md
+	  §8 risk 4 uses as a leading indicator.
+
+config APP_BATT_DIVIDER_DEN
+	int "Battery divider ratio denominator"
+	default 1
+	range 1 1000
+
+menu "LoRaWAN join credentials (bench bring-up only)"
+
+config APP_DEV_EUI
+	string "DevEUI, 16 hex characters"
+	default ""
+	help
+	  Bench fallback only, and empty by default on purpose: a device with no
+	  credentials refuses to join and logs why, rather than shipping with a
+	  default key. Production credentials are written per device to the
+	  settings partition at manufacture or over BLE at commissioning. A fleet
+	  sharing one AppKey is a fleet with one compromise.
+
+config APP_JOIN_EUI
+	string "JoinEUI/AppEUI, 16 hex characters"
+	default ""
+
+config APP_APP_KEY
+	string "AppKey, 32 hex characters"
+	default ""
+	help
+	  Never commit a real key to this repository.
+
+endmenu
+
+menu "Shutoff valve"
+
+config APP_VALVE_PRESENT
+	bool "Valve hardware is fitted"
+	default n
+	help
+	  Off by default because the year-1 SKU is sensor-only: 08-roadmap.md §10,
+	  "No inline valve in year 1. Triggers every gate at once; resell a
+	  certified one." With this off, the valve state machine is still built and
+	  still instantiated — with a NULL hardware backend, so every request
+	  answers VALVE_RC_NO_HW. That is deliberate: compiling the state machine
+	  out would let the shipped build diverge from the tested one.
+
+	  Requires valve-close-gpios and valve-open-gpios on the zephyr,user node.
+
+config APP_LOCAL_SHUTOFF_ENABLED
+	bool "Allow the local detector to close the valve"
+	default n
+	depends on APP_VALVE_PRESENT
+	help
+	  SHADOW MODE IS THE DEFAULT AND IT IS NOT OPTIONAL. Standing rule 3,
+	  08-roadmap.md §0: no customer-visible action until the nuisance rate is
+	  measured. An insurer's trust is spent once.
+
+	  With this off, the detector still runs, still produces verdicts, still
+	  logs them and still uplinks them — nothing actuates. That is what shadow
+	  mode means on the device side, and it is the mirror of the backend's
+	  alerting_enabled=false / status="shadow" behaviour in
+	  contracts/INTERFACES.md §8.
+
+	  Turning this on is a product decision gated on the P1 exit criterion,
+	  not a configuration preference.
+
+config APP_VALVE_PULSE_MS
+	int "Latching solenoid drive pulse, milliseconds"
+	default 250
+	range 20 2000
+	depends on APP_VALVE_PRESENT
+	help
+	  A latching solenoid needs one full pulse and then holds position with no
+	  current, which is what makes it inherently fail-as-is
+	  (05-open-source-stack.md §5.3). Take the real figure from the valve
+	  datasheet; too short is a half-latched stem.
+
+config APP_VALVE_TORQUE_REFUSE_MNM
+	int "Breakaway torque above which we refuse to arm, mN.m"
+	default 4000
+	range 100 50000
+	help
+	  TORQUE_REFUSE_THRESHOLD in 05-open-source-stack.md §5.3. THE DEFAULT IS
+	  NOT A MEASURED NUMBER — it is the right order of magnitude for a 3/4"
+	  quarter-turn ball valve and nothing more. Replace it with a bench torque
+	  wrench figure for the specific valve and actuator, correlated against the
+	  current-sense proxy the firmware actually measures.
+
+	  08-roadmap.md §8 risk 9's leading indicator is "any unit arming above the
+	  breakaway-torque threshold", so this number is the metric.
+
+config APP_VALVE_CYCLE_TIMEOUT_MS
+	int "Full-travel cycle timeout, milliseconds"
+	default 8000
+	range 100 60000
+	help
+	  CYCLE_TIMEOUT_MS in 05-open-source-stack.md §5.3. An overrun is a
+	  mechanical problem, so it produces V_FAULT rather than V_REFUSED, and
+	  V_FAULT is sticky until a human clears it.
+
+config APP_VALVE_MIN_ACTUATE_MV
+	int "Minimum battery to permit a CLOSE, millivolts"
+	default 3000
+	range 1800 4200
+	help
+	  Below this the state machine refuses to close but still permits an open.
+	  The asymmetry is the point: a failed open leaves the valve where it was,
+	  while a failed close risks a partially driven stem — a new failure mode —
+	  and closed is never the safe default. See the invariants in src/valve.h.
+
+endmenu
+
+module = APP
+module-str = app
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu
+
+source "Kconfig.zephyr"

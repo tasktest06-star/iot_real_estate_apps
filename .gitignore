@@ -18,3 +18,14 @@ __pycache__/
 # Editor / OS
 .DS_Store
 *.swp
+
+# Prototype
+prototype/.venv/
+prototype/build/
+prototype/**/__pycache__/
+prototype/**/*.db
+prototype/**/*.jsonl
+prototype/*.db
+prototype/*.jsonl
+prototype/.pytest_cache/
+prototype/codec/node_modules/

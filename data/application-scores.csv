@@ -2,7 +2,7 @@ id,application,peril,bom_usd_est,capex_to_ship_usd,months_to_first_revenue,cert_
 A1,Clamp-on thermal whole-home leak sensor,water,22-35,31k-94k,6-9,1,2,3,FCC Part 15 only,START
 A2,Point/puck leak sensors + in-home hub,water,8-14,20k-50k,4-6,1,1,1,FCC Part 15 only,START
 A3,Multifamily in-suite leak network on a building gateway,water,10-18,25k-60k,5-8,1,2,4,FCC Part 15 only,START
-A4,Freeze and pipe-temperature risk monitoring,water,6-12,0-15k,3-5,1,1,2,FCC Part 15 (add-on to A1/A2),START
+A4,Freeze and pipe-temperature risk monitoring,water,6-12,0-15k,3-5,1,3,2,FCC Part 15 (add-on to A1/A2),START
 A5,Sump pump and basement water monitoring,water,14-22,20k-45k,5-7,1,2,2,FCC Part 15 only,START
 A6,Resell/integrate a third-party certified shutoff valve,water,0 (resold),0-10k,3-6,0,1,1,None - vendor holds the listings,START
 A7,Advisory shutoff - monitored response with no actuator,water,0,0-20k,3-6,0,1,3,None,START

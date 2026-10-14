@@ -1,0 +1,91 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # The briefing pack's claims have to stay reproducible: licences drift (two of
+  # these repos relicensed away from Apache-2.0 while remaining the top search
+  # result), and the CSVs are the machine-readable half of tables written out in
+  # prose. This job is what stops the two halves diverging silently.
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: CSV + prose consistency
+        run: python3 -I scripts/check-data.py
+
+      - name: Licence verification (network)
+        run: make verify-licenses
+
+      - name: GitHub URLs resolve
+        run: make check-links
+
+  prototype:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prototype
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.9 on purpose: it is what the authoring box runs, and detection/ and
+      # simulator/ are stdlib-only partly so this stays true on old runtimes.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install backend deps
+        run: |
+          python3 -m venv .venv
+          ./.venv/bin/pip -q install --disable-pip-version-check -r requirements.txt
+
+      - name: Unit tests (python)
+        run: make test-py
+
+      - name: Unit tests (node codec)
+        run: make test-node
+
+      - name: End-to-end acceptance
+        run: make e2e
+
+      - name: Upload e2e artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-output
+          path: |
+            prototype/build/e2e-eval.txt
+            prototype/build/e2e-portfolio.json
+            prototype/build/e2e-server.log
+          if-no-files-found: ignore
+
+  # Firmware is NOT built. There is no ARM toolchain in this job and adding one
+  # would be a 10-minute Zephyr SDK download for a component whose README is
+  # explicit that it is unbuilt here. This job only checks the source is
+  # syntactically plausible and that nobody has quietly added a TODO.
+  firmware-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No placeholders in firmware
+        run: |
+          ! grep -rnE 'TODO|FIXME|implement me|XXX' prototype/firmware/ --include='*.c' --include='*.h' \
+            || { echo "placeholder found in firmware source"; exit 1; }
+      - name: Required safety invariants are present in source
+        run: |
+          set -e
+          grep -rq 'CONFIG_LORAWAN_NVM_SETTINGS=y' prototype/firmware/prj.conf
+          grep -rq 'CONFIG_LORAWAN_REGION_US915=y'  prototype/firmware/prj.conf
+          grep -rqi 'fail.as.is\|fail_as_is'        prototype/firmware/src/
+          echo "firmware safety invariants present"

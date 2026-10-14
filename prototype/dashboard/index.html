@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LeakWatch &mdash; insurer dashboard (prototype)</title>
+<!--
+  Single file, vanilla JS, no build step, no CDN, no framework: it works with no
+  network beyond the backend it is served from. Served by the backend at "/"
+  (see backend/app/main.py).
+
+  What this page deliberately does NOT do:
+    * no login, no roles. The backend has no auth either (see its README) and a
+      fake login would imply one;
+    * no "claims reduced by X%" tile. The portfolio panel renders whatever
+      GET /api/v1/insurer/portfolio returns, including its `not_claimed` block,
+      which is displayed as prominently as the numbers (08-roadmap.md §9);
+    * no client-side detection or thresholds. Verdicts come from the server.
+
+  Colour: status palette only (good / warning / serious / critical) plus one
+  series hue for the delta_c sparkline, each validated against both surfaces.
+  Every status is rendered as a glyph + text label as well as a colour, so
+  nothing depends on hue alone.
+-->
+<style>
+  :root {
+    color-scheme: light;
+    --page:          #f9f9f7;
+    --surface-1:     #fcfcfb;
+    --surface-2:     #f2f1ed;
+    --text-primary:  #0b0b0b;
+    --text-secondary:#52514e;
+    --text-muted:    #6d6b66;
+    --grid:          #e1e0d9;
+    --axis:          #c3c2b7;
+    --border:        rgba(11, 11, 11, 0.14);
+    --series-1:      #2a78d6;
+    --good:          #0ca30c;
+    --warning:       #fab219;
+    --serious:       #ec835a;
+    --critical:      #d03b3b;
+    --focus:         #184f95;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page:          #0d0d0d;
+      --surface-1:     #1a1a19;
+      --surface-2:     #232322;
+      --text-primary:  #f0efec;
+      --text-secondary:#c3c2b7;
+      --text-muted:    #a3a199;
+      --grid:          #2c2c2a;
+      --axis:          #383835;
+      --border:        rgba(255, 255, 255, 0.16);
+      --series-1:      #3987e5;
+      --focus:         #86b6ef;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:          #0d0d0d;
+    --surface-1:     #1a1a19;
+    --surface-2:     #232322;
+    --text-primary:  #f0efec;
+    --text-secondary:#c3c2b7;
+    --text-muted:    #a3a199;
+    --grid:          #2c2c2a;
+    --axis:          #383835;
+    --border:        rgba(255, 255, 255, 0.16);
+    --series-1:      #3987e5;
+    --focus:         #86b6ef;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--text-primary);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header.top {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline;
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+    background: var(--surface-1); position: sticky; top: 0; z-index: 5;
+  }
+  header.top h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+  header.top .sub { color: var(--text-secondary); font-size: 13px; }
+  header.top .spacer { flex: 1; }
+  main { padding: 20px; max-width: 1200px; margin: 0 auto; }
+  section { margin-bottom: 28px; }
+  h2 {
+    font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-secondary); margin: 0 0 10px; font-weight: 650;
+  }
+  h3 { font-size: 15px; margin: 18px 0 8px; font-weight: 650; }
+  p.note { color: var(--text-secondary); font-size: 13px; margin: 6px 0 0; max-width: 78ch; }
+  a { color: var(--focus); }
+
+  button {
+    font: inherit; font-size: 13px; padding: 5px 11px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface-1);
+    color: var(--text-primary); cursor: pointer;
+  }
+  button:hover { background: var(--surface-2); }
+  button:focus-visible, a:focus-visible, tr:focus-visible {
+    outline: 2px solid var(--focus); outline-offset: 2px;
+  }
+  button.primary { border-color: var(--focus); }
+  button[disabled] { opacity: 0.5; cursor: not-allowed; }
+  label.inline { font-size: 13px; color: var(--text-secondary); }
+
+  .tiles { display: flex; flex-wrap: wrap; gap: 10px; }
+  .tile {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 11px 14px; min-width: 150px; flex: 1 1 150px;
+  }
+  .tile .label { font-size: 12px; color: var(--text-secondary); }
+  .tile .value { font-size: 25px; font-weight: 650; letter-spacing: -0.02em; margin-top: 2px; }
+  .tile .foot { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  table { border-collapse: collapse; width: 100%; background: var(--surface-1); }
+  table.data { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  th, td {
+    text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--grid);
+    font-size: 13.5px; vertical-align: top;
+  }
+  th { font-size: 12px; color: var(--text-secondary); font-weight: 650; white-space: nowrap; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.clickable { cursor: pointer; }
+  tbody tr.clickable:hover { background: var(--surface-2); }
+  tbody tr.selected { background: var(--surface-2); }
+  td.wrap { max-width: 40ch; white-space: normal; color: var(--text-secondary); }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+    font-size: 12.5px; font-weight: 600; color: var(--text-primary);
+  }
+  .badge .dot { width: 9px; height: 9px; border-radius: 50%; flex: none;
+                background: var(--text-muted); }
+  .badge .glyph { font-size: 12px; width: 1em; text-align: center; color: var(--text-secondary); }
+  .badge.good .dot { background: var(--good); }
+  .badge.warning .dot { background: var(--warning); }
+  .badge.serious .dot { background: var(--serious); }
+  .badge.critical .dot { background: var(--critical); }
+  .badge.neutral .dot { background: var(--text-muted); }
+
+  .pill {
+    display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--text-secondary); white-space: nowrap;
+  }
+
+  #banner {
+    margin: 0 0 14px; padding: 9px 12px; border-radius: 7px; font-size: 13.5px;
+    border: 1px solid var(--border); background: var(--surface-2); display: none;
+    white-space: pre-wrap;
+  }
+  #banner.show { display: block; }
+
+  .chartwrap { position: relative; background: var(--surface-1);
+               border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .chartwrap svg { display: block; width: 100%; height: auto; }
+  .tip {
+    position: absolute; pointer-events: none; opacity: 0; transition: opacity 80ms;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 8px; font-size: 12.5px; color: var(--text-primary);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12); white-space: nowrap; z-index: 2;
+  }
+  .tip.on { opacity: 1; }
+  .tip .k { color: var(--text-secondary); }
+
+  .refusal {
+    border: 1px solid var(--border); border-left: 3px solid var(--critical);
+    border-radius: 6px; padding: 9px 12px; background: var(--surface-1);
+    font-size: 13.5px; margin-top: 10px;
+  }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; font-size: 13.5px; }
+  .kv dt { color: var(--text-secondary); }
+  .kv dd { margin: 0; }
+  ul.claims { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--text-secondary); }
+  ul.claims li { margin-bottom: 5px; }
+  ul.claims b { color: var(--text-primary); font-weight: 600; }
+  .muted { color: var(--text-muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .scroll { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .scroll table.data { border: none; }
+  .scroll thead th { position: sticky; top: 0; background: var(--surface-1); z-index: 1; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>LeakWatch</h1>
+  <span class="sub">insurer dashboard &middot; prototype</span>
+  <span class="spacer"></span>
+  <span class="sub" id="health">&hellip;</span>
+  <label class="inline"><input type="checkbox" id="auto"> auto-refresh 15&nbsp;s</label>
+  <button id="refresh" class="primary">Refresh</button>
+  <button id="theme" title="Toggle light/dark">Theme</button>
+</header>
+
+<main>
+  <div id="banner" role="status" aria-live="polite"></div>
+
+  <section id="portfolio-section">
+    <h2>Portfolio</h2>
+    <div class="tiles" id="tiles"></div>
+    <div id="portfolio-detail"></div>
+  </section>
+
+  <section id="fleet-section">
+    <h2>Fleet</h2>
+    <div class="scroll">
+      <table class="data" id="fleet">
+        <thead><tr>
+          <th scope="col">Device</th>
+          <th scope="col">Last seen</th>
+          <th scope="col" class="num">Battery</th>
+          <th scope="col">Verdict</th>
+          <th scope="col" class="num">&Delta;&nbsp;&deg;C</th>
+          <th scope="col">Install</th>
+          <th scope="col">Valve</th>
+          <th scope="col">Mode</th>
+          <th scope="col" class="num">Alerts</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note">A device is in <b>shadow mode</b> until alerting is explicitly enabled:
+      no notification leaves the system while it is (08-roadmap.md &sect;0, standing rule&nbsp;3).
+      Battery is millivolts, not a state of charge &mdash; Li-SOCl<sub>2</sub> discharge is flat
+      and then cliffs (&sect;8 risk&nbsp;7).</p>
+  </section>
+
+  <section id="alerts-section">
+    <h2>Alerts</h2>
+    <div class="row" id="alert-filters"></div>
+    <div class="scroll" style="margin-top:10px">
+      <table class="data" id="alerts">
+        <thead><tr>
+          <th scope="col">#</th>
+          <th scope="col">Raised</th>
+          <th scope="col">Device</th>
+          <th scope="col">Verdict</th>
+          <th scope="col">Status</th>
+          <th scope="col">Notified</th>
+          <th scope="col">Reason</th>
+          <th scope="col">Review</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note">&ldquo;This was nothing&rdquo; is the one-click nuisance report of
+      &sect;8 risk&nbsp;2. It is the measurement the P1 gate depends on, so it is one
+      click and it is never pre-filled.</p>
+  </section>
+
+  <section id="device-section" hidden>
+    <h2>Device</h2>
+    <div id="device"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const SVGNS = "http://www.w3.org/2000/svg";
+const API = "/api/v1";
+
+/* Status palette -> verdict. Fixed roles, never reused for a series, and always
+   paired with a glyph and the verdict text so colour is never the only channel. */
+const VERDICT_STYLE = {
+  quiet:              { cls: "good",     glyph: "✓", label: "quiet" },
+  watch:              { cls: "warning",  glyph: "○", label: "watch" },
+  leak_suspected:     { cls: "critical", glyph: "▲", label: "leak suspected" },
+  freeze_risk:        { cls: "serious",  glyph: "❄", label: "freeze risk" },
+  sensor_fault:       { cls: "neutral",  glyph: "✕", label: "sensor fault" },
+  install_unverified: { cls: "neutral",  glyph: "?",      label: "install unverified" }
+};
+const STATUS_STYLE = {
+  shadow:   { cls: "neutral",  glyph: "◌", label: "shadow" },
+  open:     { cls: "critical", glyph: "▲", label: "open" },
+  acked:    { cls: "good",     glyph: "✓", label: "acked (true)" },
+  nuisance: { cls: "warning",  glyph: "○", label: "nuisance" }
+};
+
+let state = { alertStatus: "", selected: null, portfolio: null, timer: null };
+
+/* ----------------------------------------------------------------- utils -- */
+function el(tag, attrs, kids) {
+  const n = document.createElement(tag);
+  if (attrs) for (const k in attrs) {
+    if (k === "class") n.className = attrs[k];
+    else if (k === "text") n.textContent = attrs[k];
+    else if (k === "html") n.innerHTML = attrs[k];
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), attrs[k]);
+    else if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
+  }
+  (kids || []).forEach(c => n.appendChild(typeof c === "string"
+    ? document.createTextNode(c) : c));
+  return n;
+}
+function svg(tag, attrs) {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) {
+    n.setAttribute(k, attrs[k]);
+  }
+  return n;
+}
+function num(v, digits) {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(digits === undefined ? 2 : digits) : String(v);
+}
+function compact(v) {
+  if (v === null || v === undefined) return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (Math.abs(n) >= 1e4) return (n / 1e3).toFixed(1) + "K";
+  return String(Math.round(n * 100) / 100);
+}
+function ago(seconds) {
+  if (seconds === null || seconds === undefined) return "never";
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 90) return s + "s ago";
+  if (s < 5400) return Math.round(s / 60) + "m ago";
+  if (s < 172800) return Math.round(s / 3600) + "h ago";
+  return Math.round(s / 86400) + "d ago";
+}
+function badge(map, key, extra) {
+  const sty = map[key] || { cls: "neutral", glyph: "—", label: key || "none" };
+  return el("span", { class: "badge " + sty.cls, title: extra || sty.label }, [
+    el("span", { class: "dot", "aria-hidden": "true" }),
+    el("span", { class: "glyph", "aria-hidden": "true", text: sty.glyph }),
+    el("span", { text: sty.label })
+  ]);
+}
+function banner(message, isError) {
+  const b = document.getElementById("banner");
+  b.textContent = message || "";
+  b.className = message ? "show" : "";
+  b.style.borderLeft = message ? ("3px solid var(--" + (isError ? "critical" : "good") + ")") : "";
+}
+async function api(path, options) {
+  const r = await fetch(API + path, Object.assign({
+    headers: { "content-type": "application/json" }
+  }, options || {}));
+  let body = null;
+  try { body = await r.json(); } catch (e) { body = { error: "non-JSON response" }; }
+  return { ok: r.ok, status: r.status, body: body };
+}
+
+/* ------------------------------------------------------------- sparkline -- */
+/* One series (delta_c), so no legend box: the heading names it. 2px line, 4.5px
+   end dot with a 2px surface ring, a 10% wash to the zero reference, hairline
+   gridlines, and the endpoint is the only directly labelled value. The samples
+   table underneath is the table view. */
+function sparkline(samples) {
+  const W = 720, H = 170, PAD = { t: 14, r: 54, b: 22, l: 44 };
+  const pts = samples.filter(s => s.delta_c !== null && s.delta_c !== undefined);
+  const wrap = el("div", { class: "chartwrap" });
+  if (pts.length < 2) {
+    wrap.appendChild(el("p", { class: "note",
+      text: "Not enough decoded samples yet to plot Δ°C (need two)." }));
+    return wrap;
+  }
+  const xs = pts.map(s => Date.parse(s.received_at) / 1000);
+  const ys = pts.map(s => Number(s.delta_c));
+  const x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+  let lo = Math.min.apply(null, ys), hi = Math.max.apply(null, ys);
+  lo = Math.min(lo, 0); hi = Math.max(hi, 0);
+  const span = (hi - lo) || 1;
+  lo -= span * 0.12; hi += span * 0.12;
+  const sx = v => PAD.l + ((v - x0) / ((x1 - x0) || 1)) * (W - PAD.l - PAD.r);
+  const sy = v => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
+
+  const s = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+    "aria-label": "Pipe-minus-ambient temperature difference over time" });
+
+  [hi, (hi + lo) / 2, lo].forEach(v => {
+    s.appendChild(svg("line", { x1: PAD.l, x2: W - PAD.r, y1: sy(v), y2: sy(v),
+      stroke: "var(--grid)", "stroke-width": 1 }));
+    s.appendChild(svg("text", { x: PAD.l - 6, y: sy(v) + 4, "text-anchor": "end",
+      fill: "var(--text-muted)", "font-size": 11 })).textContent = num(v, 1);
+  });
+  // zero reference: chrome, not a second series
+  s.appendChild(svg("line", { x1: PAD.l, x2: W - PAD.r, y1: sy(0), y2: sy(0),
+    stroke: "var(--axis)", "stroke-width": 1 }));
+  s.appendChild(svg("text", { x: W - PAD.r + 6, y: sy(0) + 4, fill: "var(--text-muted)",
+    "font-size": 11 })).textContent = "0";
+
+  const line = pts.map((p, i) => (i ? "L" : "M") + sx(xs[i]) + " " + sy(ys[i])).join(" ");
+  const area = line + " L" + sx(xs[xs.length - 1]) + " " + sy(0) + " L" + sx(xs[0]) + " " + sy(0) + " Z";
+  s.appendChild(svg("path", { d: area, fill: "var(--series-1)", "fill-opacity": 0.1 }));
+  s.appendChild(svg("path", { d: line, fill: "none", stroke: "var(--series-1)",
+    "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+
+  const lastX = sx(xs[xs.length - 1]), lastY = sy(ys[ys.length - 1]);
+  s.appendChild(svg("circle", { cx: lastX, cy: lastY, r: 4.5, fill: "var(--series-1)",
+    stroke: "var(--surface-1)", "stroke-width": 2 }));
+  s.appendChild(svg("text", { x: Math.min(lastX + 10, W - 6), y: lastY + 4,
+    fill: "var(--text-secondary)", "font-size": 12, "font-weight": 600,
+    "text-anchor": lastX > W - PAD.r - 30 ? "end" : "start"
+  })).textContent = num(ys[ys.length - 1], 2) + " °C";
+
+  [0, pts.length - 1].forEach((i, k) => {
+    s.appendChild(svg("text", { x: sx(xs[i]), y: H - 6,
+      "text-anchor": k ? "end" : "start", fill: "var(--text-muted)", "font-size": 11
+    })).textContent = (pts[i].received_at || "").replace("T", " ").replace("Z", "");
+  });
+
+  const cross = svg("line", { y1: PAD.t, y2: H - PAD.b, stroke: "var(--axis)",
+    "stroke-width": 1, opacity: 0 });
+  const focus = svg("circle", { r: 4.5, fill: "var(--series-1)",
+    stroke: "var(--surface-1)", "stroke-width": 2, opacity: 0 });
+  s.appendChild(cross); s.appendChild(focus);
+
+  const tip = el("div", { class: "tip" });
+  const hit = svg("rect", { x: PAD.l, y: PAD.t, width: W - PAD.l - PAD.r,
+    height: H - PAD.t - PAD.b, fill: "transparent", style: "cursor:crosshair" });
+  s.appendChild(hit);
+  function move(ev) {
+    const box = s.getBoundingClientRect();
+    const vx = (ev.clientX - box.left) * (W / box.width);
+    let best = 0, bestD = Infinity;
+    pts.forEach((p, i) => { const d = Math.abs(sx(xs[i]) - vx); if (d < bestD) { bestD = d; best = i; } });
+    const p = pts[best];
+    cross.setAttribute("x1", sx(xs[best])); cross.setAttribute("x2", sx(xs[best]));
+    cross.setAttribute("opacity", 1);
+    focus.setAttribute("cx", sx(xs[best])); focus.setAttribute("cy", sy(ys[best]));
+    focus.setAttribute("opacity", 1);
+    tip.innerHTML = "";
+    tip.appendChild(el("div", { html: "<span class='k'>Δ</span> <b>" + num(p.delta_c, 2)
+      + " °C</b>" }));
+    tip.appendChild(el("div", { class: "k", text: "pipe " + num(p.pipe_c, 2)
+      + " / ambient " + num(p.ambient_c, 2) + " °C" }));
+    tip.appendChild(el("div", { class: "k", text: (p.verdict || "no verdict")
+      + " · f_cnt " + p.f_cnt }));
+    tip.appendChild(el("div", { class: "k", text: p.received_at || "" }));
+    tip.classList.add("on");
+    const px = (sx(xs[best]) / W) * box.width;
+    tip.style.left = Math.min(Math.max(px + 14, 4), box.width - 190) + "px";
+    tip.style.top = ((sy(ys[best]) / H) * box.height - 10) + "px";
+  }
+  hit.addEventListener("mousemove", move);
+  hit.addEventListener("mouseleave", () => {
+    tip.classList.remove("on"); cross.setAttribute("opacity", 0); focus.setAttribute("opacity", 0);
+  });
+
+  wrap.appendChild(s); wrap.appendChild(tip);
+  return wrap;
+}
+
+/* ------------------------------------------------------------- portfolio -- */
+function tile(label, value, foot) {
+  return el("div", { class: "tile" }, [
+    el("div", { class: "label", text: label }),
+    el("div", { class: "value", text: value }),
+    el("div", { class: "foot", text: foot || "" })
+  ]);
+}
+function renderPortfolio(p) {
+  state.portfolio = p;
+  const t = document.getElementById("tiles");
+  t.innerHTML = "";
+  const po = p.portfolio, de = p.detection, mi = p.mitigation, la = p.loss_avoided_estimate;
+  t.appendChild(tile("Devices known", compact(po.devices_known),
+    po.devices_reporting_last_7d + " reported in 7 d"));
+  t.appendChild(tile("In shadow mode", compact(po.in_shadow_mode),
+    po.alerting_enabled + " alerting to customers"));
+  t.appendChild(tile("Observed house-years", num(po.observed_house_years, 3),
+    num(po.observed_device_days, 1) + " device-days"));
+  t.appendChild(tile("Alerts raised", compact(de.alerts_raised),
+    de.raised_in_shadow_mode + " in shadow · " + de.awaiting_review + " unreviewed"));
+  t.appendChild(tile("Nuisance alerts", compact(de.nuisance_alerts),
+    de.nuisance_rate_of_reviewed === null ? "no reviews yet"
+      : "of " + de.reviewed_by_operator + " reviewed"));
+  t.appendChild(tile("Nuisance / device-year",
+    de.nuisance_alerts_per_device_year === null ? "—"
+      : num(de.nuisance_alerts_per_device_year, 2),
+    "P1 gate < " + de.p1_gate.threshold + " · " + de.p1_gate.status.replace(/_/g, " ")));
+  t.appendChild(tile("Median detection latency",
+    de.median_detection_latency_s === null ? "—"
+      : Math.round(de.median_detection_latency_s / 60) + " min",
+    "from first anomalous sample"));
+  t.appendChild(tile("Confirmed shutoffs", compact(mi.confirmed_closes),
+    mi.median_time_to_confirmed_shutoff_s === null ? "none confirmed"
+      : "median " + Math.round(mi.median_time_to_confirmed_shutoff_s / 60) + " min"));
+  t.appendChild(tile("Severity-model estimate",
+    "$" + compact(la.estimated_severity_avoided_usd_upper),
+    la.events_lower_bound + "–" + la.events_upper_bound + " events · illustrative"));
+
+  const d = document.getElementById("portfolio-detail");
+  d.innerHTML = "";
+  d.appendChild(el("h3", { text: "What this report does not claim" }));
+  const ul = el("ul", { class: "claims" });
+  (p.not_claimed || []).forEach(c => ul.appendChild(el("li", {}, [
+    el("b", { text: c.claim }), document.createTextNode(" — " + c.why)
+  ])));
+  d.appendChild(ul);
+
+  d.appendChild(el("h3", { text: "Method" }));
+  const dl = el("dl", { class: "kv" });
+  function kv(k, v) { dl.appendChild(el("dt", { text: k })); dl.appendChild(el("dd", { text: v })); }
+  kv("Window", p.window_days + " days from " + p.window_start);
+  kv("Schema", p.schema.name + " — " + p.schema.conformance);
+  kv("Detector", de.detector_implementation + (de.detector_note ? " (" + de.detector_note + ")" : ""));
+  kv("Loss estimate", la.method);
+  kv("Arithmetic", la.arithmetic + " = $" + compact(la.estimated_severity_avoided_usd_upper));
+  kv("Severity input", "$" + la.inputs.mean_water_claim_severity_usd.value + " · "
+    + la.inputs.mean_water_claim_severity_usd.source);
+  kv("Reduction input", la.inputs.external_severity_reduction_fraction.value + " · "
+    + la.inputs.external_severity_reduction_fraction.provenance);
+  kv("Statistical power", "observed " + num(la.statistical_power.observed_house_years, 3)
+    + " house-years; significance needs " + la.statistical_power.house_years_for_significance);
+  kv("P1 gate", de.p1_gate.status + (de.p1_gate.blockers.length
+    ? " — " + de.p1_gate.blockers.join("; ") : ""));
+  kv("Never-reporting", po.never_reporting.why_not_computed);
+  d.appendChild(dl);
+}
+
+/* ----------------------------------------------------------------- fleet -- */
+function renderFleet(devices) {
+  const tb = document.querySelector("#fleet tbody");
+  tb.innerHTML = "";
+  if (!devices.length) {
+    tb.appendChild(el("tr", {}, [el("td", { colspan: 9, class: "muted",
+      text: "No devices yet. A device appears after its first uplink." })]));
+    return;
+  }
+  devices.forEach(d => {
+    const tr = el("tr", { class: "clickable" + (state.selected === d.device_id ? " selected" : ""),
+      tabindex: "0", onclick: () => selectDevice(d.device_id),
+      onkeydown: ev => { if (ev.key === "Enter") selectDevice(d.device_id); } });
+    tr.appendChild(el("td", {}, [el("b", { text: d.device_id }),
+      el("div", { class: "muted", style: "font-size:11.5px", text: d.dev_eui })]));
+    tr.appendChild(el("td", { title: d.last_seen_at || "" },
+      [document.createTextNode(ago(d.seconds_since_last_seen))]));
+    const batt = el("td", { class: "num" });
+    batt.appendChild(document.createTextNode(d.battery_mv === null ? "—" : d.battery_mv + " mV"));
+    if (d.battery_low) {
+      batt.appendChild(el("div", {}, [el("span", { class: "badge warning",
+        title: "below " + d.battery_low_threshold_mv + " mV" }, [
+        el("span", { class: "dot", "aria-hidden": "true" }),
+        el("span", { class: "glyph", "aria-hidden": "true", text: "!" }),
+        el("span", { text: "low" })])]));
+    }
+    tr.appendChild(batt);
+    tr.appendChild(el("td", { title: d.verdict_reason || "" },
+      [badge(VERDICT_STYLE, d.verdict, d.verdict_reason)]));
+    tr.appendChild(el("td", { class: "num", text: num(d.delta_c, 2) }));
+    tr.appendChild(el("td", {}, [el("span", { class: "pill",
+      text: d.install_verified ? "verified" : "unverified" })]));
+    tr.appendChild(el("td", {}, [el("span", { class: "pill",
+      title: d.arming_reason || "",
+      text: (d.armed ? "armed" : "not armed") + " · " + d.valve_state })]));
+    tr.appendChild(el("td", {}, [el("span", { class: "pill",
+      text: d.shadow_mode ? "shadow" : "alerting" })]));
+    tr.appendChild(el("td", { class: "num",
+      text: (d.open_alerts + d.shadow_alerts) || "0" }));
+    tb.appendChild(tr);
+  });
+}
+
+/* ---------------------------------------------------------------- alerts -- */
+function renderAlertFilters() {
+  const bar = document.getElementById("alert-filters");
+  bar.innerHTML = "";
+  [["", "all"], ["shadow", "shadow"], ["open", "open"], ["acked", "acked (true)"],
+   ["nuisance", "nuisance"]].forEach(([value, label]) => {
+    bar.appendChild(el("button", {
+      class: state.alertStatus === value ? "primary" : "",
+      text: label,
+      onclick: () => { state.alertStatus = value; refresh(); }
+    }));
+  });
+}
+function renderAlerts(alerts) {
+  const tb = document.querySelector("#alerts tbody");
+  tb.innerHTML = "";
+  if (!alerts.length) {
+    tb.appendChild(el("tr", {}, [el("td", { colspan: 8, class: "muted",
+      text: "No alerts for this filter." })]));
+    return;
+  }
+  alerts.forEach(a => {
+    const tr = el("tr");
+    tr.appendChild(el("td", { class: "num", text: a.id }));
+    tr.appendChild(el("td", { text: (a.raised_at || "").replace("T", " ").replace("Z", "") }));
+    tr.appendChild(el("td", {}, [el("a", { href: "#", text: a.device_id,
+      onclick: ev => { ev.preventDefault(); selectDevice(a.device_id); } })]));
+    tr.appendChild(el("td", {}, [badge(VERDICT_STYLE, a.verdict)]));
+    tr.appendChild(el("td", {}, [badge(STATUS_STYLE, a.status)]));
+    tr.appendChild(el("td", {}, [el("span", { class: "pill",
+      text: a.notified ? "notified" : "not sent" })]));
+    tr.appendChild(el("td", { class: "wrap", text: a.reason || "" }));
+    const act = el("td");
+    if (a.acked_at) {
+      act.appendChild(el("div", { class: "muted", style: "font-size:12px",
+        text: (a.was_nuisance ? "nuisance" : "true event") + " · "
+          + (a.acked_by || "unattributed") + (a.note ? " · " + a.note : "") }));
+    } else {
+      act.appendChild(el("div", { class: "row" }, [
+        el("button", { text: "This was nothing",
+          onclick: () => ack(a.id, true) }),
+        el("button", { text: "Confirm real", onclick: () => ack(a.id, false) })
+      ]));
+    }
+    tr.appendChild(act);
+    tb.appendChild(tr);
+  });
+}
+async function ack(alertId, wasNuisance) {
+  const note = window.prompt(wasNuisance
+    ? "Optional: what was it actually? (dishwasher, shower, …)"
+    : "Optional: note for this confirmed event", "");
+  if (note === null) return;
+  const r = await api("/alerts/" + alertId + "/ack", {
+    method: "POST",
+    body: JSON.stringify({ was_nuisance: wasNuisance, note: note, actor: "dashboard" })
+  });
+  banner(r.ok ? "Alert " + alertId + " recorded as "
+      + (wasNuisance ? "a nuisance alert." : "a confirmed true event.")
+    : "Ack failed (" + r.status + "): " + JSON.stringify(r.body), !r.ok);
+  refresh();
+}
+
+/* ---------------------------------------------------------------- device -- */
+async function selectDevice(deviceId) {
+  state.selected = deviceId;
+  const r = await api("/devices/" + encodeURIComponent(deviceId));
+  const section = document.getElementById("device-section");
+  const host = document.getElementById("device");
+  section.hidden = false;
+  host.innerHTML = "";
+  if (!r.ok) {
+    host.appendChild(el("p", { class: "note", text: "Could not load " + deviceId
+      + ": " + JSON.stringify(r.body) }));
+    return;
+  }
+  const d = r.body;
+  host.appendChild(el("div", { class: "row" }, [
+    el("h3", { style: "margin:0", text: d.device_id }),
+    badge(VERDICT_STYLE, d.verdict, d.verdict_reason),
+    el("span", { class: "pill", text: d.shadow_mode ? "shadow mode" : "alerting enabled" }),
+    el("span", { class: "pill", title: d.arming_reason || "",
+      text: (d.armed ? "armed" : "not armed") + " · valve " + d.valve_state }),
+    el("span", { class: "spacer", style: "flex:1" }),
+    el("button", { text: "Request valve close", onclick: () => valveClose(d.device_id) }),
+    el("button", { text: "Close view", onclick: () => {
+      section.hidden = true; state.selected = null; refresh();
+    } })
+  ]));
+
+  const dl = el("dl", { class: "kv", style: "margin-top:10px" });
+  function kv(k, v) { dl.appendChild(el("dt", { text: k })); dl.appendChild(el("dd", { text: v })); }
+  kv("DevEUI", d.dev_eui);
+  kv("Last seen", (d.last_seen_at || "never") + " (" + ago(d.seconds_since_last_seen) + ")");
+  kv("Uplinks", String(d.uplink_count) + " · last f_cnt " + d.last_f_cnt);
+  kv("Pipe / ambient", num(d.pipe_c, 2) + " / " + num(d.ambient_c, 2) + " °C");
+  kv("Battery", (d.battery_mv === null ? "—" : d.battery_mv + " mV") + " · " + d.battery_note);
+  kv("Radio", "RSSI " + num(d.rssi, 0) + " dBm · SNR " + num(d.snr, 1) + " dB");
+  kv("Install", (d.install_verified ? "verified" : "unverified")
+    + (d.tamper ? " · tamper flagged" : "") + (d.cold_warning ? " · cold warning" : ""));
+  kv("Arming", d.arming_reason);
+  if (d.install_probe_at) {
+    kv("Install probe", d.install_probe_at + " · breakaway "
+      + num(d.breakaway_torque_mnm, 0) + " mNm · stem leak " + String(d.stem_leak));
+  }
+  if (d.verdict_reason) kv("Why", d.verdict_reason);
+  if (d.alerting_change_reason) kv("Alerting changed", d.alerting_change_reason);
+  host.appendChild(dl);
+
+  host.appendChild(el("h3", { text: "Δ°C (pipe − ambient), newest at right" }));
+  host.appendChild(sparkline(d.recent_samples || []));
+  host.appendChild(el("p", { class: "note", text: "Δ°C is derived, never "
+    + "transmitted (contract §1). It is the signal: a cold-water leak pulls the pipe "
+    + "below ambient and holds it there." }));
+
+  host.appendChild(el("div", { id: "valve-result" }));
+
+  if ((d.valve_commands || []).length) {
+    host.appendChild(el("h3", { text: "Valve commands" }));
+    host.appendChild(table(["#", "Command", "Status", "Issued", "Confirmed", "Reason"],
+      d.valve_commands.map(c => [c.command_id, c.command,
+        el("span", { class: "pill", text: c.status }),
+        (c.issued_at || "").replace("T", " ").replace("Z", ""),
+        (c.confirmed_at || "—").replace("T", " ").replace("Z", ""),
+        el("span", { class: "wrap", text: c.reason || "" })])));
+  }
+
+  if ((d.alerts || []).length) {
+    host.appendChild(el("h3", { text: "Alerts for this device" }));
+    host.appendChild(table(["#", "Raised", "Verdict", "Status", "Notified", "Reason"],
+      d.alerts.map(a => [a.id, (a.raised_at || "").replace("T", " ").replace("Z", ""),
+        badge(VERDICT_STYLE, a.verdict), badge(STATUS_STYLE, a.status),
+        a.notified ? "notified" : "not sent", el("span", { class: "wrap", text: a.reason || "" })])));
+  }
+
+  host.appendChild(el("h3", { text: "Recent samples (table view of the chart)" }));
+  const rows = (d.recent_samples || []).slice().reverse().map(s => [
+    s.f_cnt, (s.received_at || "").replace("T", " ").replace("Z", ""),
+    num(s.pipe_c, 2), num(s.ambient_c, 2), num(s.delta_c, 2), num(s.baseline_c, 2),
+    s.battery_mv === null ? "—" : s.battery_mv, s.uplink_reason || "—",
+    badge(VERDICT_STYLE, s.verdict),
+    el("span", { class: "wrap", text: s.decode_error || s.detector_error || s.reason || "" })]);
+  const wrapper = el("div", { class: "scroll" });
+  wrapper.appendChild(table(["f_cnt", "Received", "Pipe", "Ambient", "Δ", "Baseline",
+    "mV", "Reason", "Verdict", "Detail"], rows, [0, 2, 3, 4, 5, 6]));
+  host.appendChild(wrapper);
+}
+
+function table(headers, rows, numericCols) {
+  const t = el("table", { class: "data" });
+  const thead = el("thead"), htr = el("tr");
+  headers.forEach((h, i) => htr.appendChild(el("th", {
+    scope: "col", class: (numericCols || []).indexOf(i) >= 0 ? "num" : "", text: h })));
+  thead.appendChild(htr); t.appendChild(thead);
+  const tb = el("tbody");
+  rows.forEach(r => {
+    const tr = el("tr");
+    r.forEach((c, i) => {
+      const td = el("td", { class: (numericCols || []).indexOf(i) >= 0 ? "num" : "" });
+      if (c && c.nodeType) td.appendChild(c); else td.textContent = (c === null || c === undefined)
+        ? "—" : String(c);
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+  return t;
+}
+
+async function valveClose(deviceId) {
+  if (!window.confirm("Request a valve CLOSE on " + deviceId + "?\n\n"
+    + "The backend refuses unless an install probe armed the device, and it never "
+    + "reports a command as successful without a confirming uplink.")) return;
+  const r = await api("/devices/" + encodeURIComponent(deviceId) + "/valve", {
+    method: "POST", body: JSON.stringify({ command: "close", requested_by: "dashboard" })
+  });
+  const host = document.getElementById("valve-result");
+  if (host) {
+    host.innerHTML = "";
+    const box = el("div", { class: "refusal" });
+    if (r.status === 409) {
+      box.appendChild(el("div", {}, [el("b", { text: "Refused (409): " + r.body.reason_code })]));
+      box.appendChild(el("div", { text: r.body.reason }));
+      box.appendChild(el("div", { class: "muted", text: "Action taken: " + r.body.action_taken
+        + " · " + r.body.fail_mode }));
+      box.appendChild(el("div", { class: "muted", text: r.body.remedy }));
+    } else if (r.ok) {
+      box.style.borderLeftColor = "var(--good)";
+      box.appendChild(el("div", {}, [el("b", { text: "Queued: " + r.body.status })]));
+      box.appendChild(el("div", { text: r.body.reason }));
+      box.appendChild(el("div", { class: "muted", text: "FPort " + r.body.f_port
+        + " · payload " + r.body.payload_b64 + " · token " + r.body.token
+        + " · confirm by " + r.body.confirm_deadline_at }));
+      box.appendChild(el("div", { class: "muted", text: r.body.arbitration }));
+    } else {
+      box.appendChild(el("div", { text: "Error " + r.status + ": " + JSON.stringify(r.body) }));
+    }
+    host.appendChild(box);
+  }
+  selectDevice(deviceId);
+}
+
+/* --------------------------------------------------------------- refresh -- */
+async function refresh() {
+  const [health, devices, alerts, portfolio] = await Promise.all([
+    api("/healthz"), api("/devices"),
+    api("/alerts" + (state.alertStatus ? "?status=" + state.alertStatus : "")),
+    api("/insurer/portfolio")
+  ]);
+  if (!health.ok) { banner("Backend unreachable or unhealthy.", true); return; }
+  const h = health.body;
+  document.getElementById("health").textContent =
+    h.devices + " devices · " + h.uplinks + " uplinks · detector: " + h.detector;
+  if (h.detector_is_fallback) {
+    banner("Detector fallback is active: " + (h.detector_note || "")
+      + "\nNothing on this page is the product's detection performance.", true);
+  }
+  if (devices.ok) renderFleet(devices.body.devices); else banner("GET /devices failed", true);
+  if (alerts.ok) renderAlerts(alerts.body.alerts); else banner("GET /alerts failed", true);
+  if (portfolio.ok) renderPortfolio(portfolio.body); else banner("GET /insurer/portfolio failed", true);
+  if (state.selected) selectDevice(state.selected);
+}
+
+document.getElementById("refresh").addEventListener("click", () => { banner(""); refresh(); });
+document.getElementById("theme").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  document.documentElement.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+});
+document.getElementById("auto").addEventListener("change", ev => {
+  if (state.timer) { clearInterval(state.timer); state.timer = null; }
+  if (ev.target.checked) state.timer = setInterval(refresh, 15000);
+});
+renderAlertFilters();
+refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "leakguard-lorawan-codec",
+  "version": "1.0.0",
+  "description": "LoRaWAN payload codec for the clamp-on differential-temperature leak sensor (A1). Implements contracts/INTERFACES.md sections 1-3 in the shape The Things Stack expects.",
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "lorawan",
+    "the-things-stack",
+    "payload-codec",
+    "leak-detection"
+  ]
+}

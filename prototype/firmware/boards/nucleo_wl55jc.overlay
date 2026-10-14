@@ -1,0 +1,212 @@
+/*
+ * nucleo_wl55jc.overlay — second board target.
+ *
+ * WHY A SECOND TARGET AT ALL: a dual-source BOM is a deliberate requirement,
+ * and 08-roadmap.md §8 risk 8 is the reason — "Module EOL, and a second source
+ * invalidates the FCC grant", leading indicator "vendor PCN, or lead time >16
+ * weeks", mitigation "pre-identify a footprint-compatible alternate ... budget
+ * the re-test as a known cost". The mitigation only works if the firmware
+ * already runs on the alternate, and "already runs" has to be true before the
+ * PCN arrives, not after. 05-open-source-stack.md §5.1 makes the same point
+ * about Zephyr: the reason to use it is that "your firmware survives a BOM
+ * change".
+ *
+ * WHAT THE SHIPPING ALTERNATE ACTUALLY IS: RAK3172 at $5.99, which is an
+ * STM32WLE5CC — a single die carrying a Cortex-M4 and an SX126x-class radio
+ * together — second-sourced to the Seeed Wio-E5 at $6.49, same die, different
+ * vendor (06-hardware-and-devkits.md; 08-roadmap.md §3 P2).
+ *
+ * WHY THE BOARD TARGET IS A NUCLEO AND NOT A RAK3172: upstream Zephyr ships
+ * `nucleo_wl55jc` and that is what can be built today. Two honest caveats:
+ *
+ *   1. The Nucleo-WL55JC carries an STM32WL55JC (Cortex-M4 *plus* a Cortex-M0+)
+ *      whereas the RAK3172 is an STM32WLE5CC (M4 only, 256 KB flash with ECC /
+ *      64 KB RAM). For this application they are equivalent — nothing here runs
+ *      on the M0+ — but the RAM figure is the one to design against, and 64 KB
+ *      with a LoRaWAN MAC and a BLE-less build is comfortable rather than
+ *      generous.
+ *   2. 06-hardware-and-devkits.md flags the "1" suffix: NUCLEO-WL55JC1 is the
+ *      high band (868/915) part and JC2 is 433 MHz. Order the wrong one and
+ *      US915 is not a software problem.
+ *
+ * AND THE ONE THAT MATTERS COMMERCIALLY: this board is bare silicon. It carries
+ * no modular grant at all. 06-hardware-and-devkits.md is blunt about the
+ * equivalent ST path — "None — bare silicon, you own the whole FCC filing. The
+ * ~$2 saving vs RAK3172 costs five figures." Use this target for bring-up and
+ * for proving the firmware ports; ship on the RAK3172, which has direct-download
+ * FCC, ISED, CE and LoRa Alliance certificates.
+ *
+ * NOT BUILT OR FLASHED. See README.md. VERIFY blocks are in priority order.
+ *
+ * ===========================================================================
+ * ANTENNA AND RF — the same rule, with a sharper edge on this board
+ * ===========================================================================
+ * On the RAK4631 the job is to stay inside someone else's grant. Here there is
+ * no grant to stay inside, so every antenna decision is yours and every one of
+ * them is a test-lab cost:
+ *
+ *   - the STM32WL has two PA paths, RFO_LP and RFO_HP, and the choice is made
+ *     in devicetree below (`power-amplifier-output`). Selecting HP on a board
+ *     matched for LP, or exceeding rfo-hp-max-power, radiates out of
+ *     specification while software reports success;
+ *   - the front-end switch (FE_CTRL lines) must be driven consistently with
+ *     the PA selection, or the PA sees the wrong load — which is both a
+ *     compliance problem and a way to destroy the die;
+ *   - when this moves to a RAK3172, the antenna must match the conditions in
+ *     the RAK3172 module grant. Violating them forfeits modular approval and
+ *     requires a full FCC Part 15C campaign for the finished product — a
+ *     five-figure spend plus weeks of lab calendar, repeated per variant
+ *     (08-roadmap.md §3 P2: "read the module grant's antenna conditions before
+ *     layout").
+ *
+ * Treat `power-amplifier-output`, `rfo-hp-max-power` and the FE_CTRL wiring as
+ * regulatory settings that happen to live in a .overlay file.
+ * ===========================================================================
+ */
+
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/*
+ * ---------------------------------------------------------------------------
+ * The two TMP117s. Same addresses, same reasoning as the RAK4631 overlay.
+ * ---------------------------------------------------------------------------
+ * VERIFY (1): the I2C instance AND its pinctrl. This is the least certain block
+ * in either overlay and it is stated as a candidate, not as fact.
+ *
+ * The pinctrl node labels follow Zephyr's STM32 convention
+ * <periph>_<signal>_p<port><pin>, and the pair below assumes I2C2 on PA11/PA12
+ * (AF4 on STM32WLE5/WL55). Confirm both the instance and the exact label names
+ * before building:
+ *
+ *     grep -n "i2c2_" $ZEPHYR_BASE/dts/st/wl/stm32wle5-pinctrl.dtsi
+ *     grep -rn "i2c" $ZEPHYR_BASE/boards/st/nucleo_wl55jc/nucleo_wl55jc.dts
+ *
+ * If the board DTS already configures an I2C instance on the Arduino header,
+ * use that one and delete the pinctrl lines here — the board DTS should own pin
+ * mapping. A wrong pinctrl label fails at build time with the label in the
+ * message; a wrong-but-valid one silently drives the wrong pads, which is the
+ * outcome worth spending five minutes to avoid.
+ */
+&i2c2 {
+	pinctrl-0 = <&i2c2_scl_pa12 &i2c2_sda_pa11>;
+	pinctrl-names = "default";
+	status = "okay";
+	clock-frequency = <100000>;
+
+	pipe_temp: tmp117@48 {
+		compatible = "ti,tmp11x";
+		reg = <0x48>;
+		status = "okay";
+	};
+
+	ambient_temp: tmp117@49 {
+		compatible = "ti,tmp11x";
+		reg = <0x49>;
+		status = "okay";
+	};
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * The radio. On STM32WL it is on-die, reached over the internal SUBGHZSPI.
+ * ---------------------------------------------------------------------------
+ * This is the structural difference from the RAK4631 and the reason the second
+ * target is worth maintaining: there is no external SX1262 and no external SPI
+ * bus. The same Zephyr SX126x driver covers it through the
+ * `st,stm32wl-subghz-radio` compatible, so src/ needs no change at all — which
+ * is precisely the portability claim 05-open-source-stack.md §5.1 makes for
+ * Zephyr, tested rather than asserted.
+ *
+ * VERIFY (2): the in-tree nucleo_wl55jc board DTS is expected to instantiate
+ * this node already, as `lora: radio@0` under &subghzspi. Re-stating it at the
+ * same path is a no-op merge; a different upstream node name produces a loud
+ * duplicate-label error rather than a silent second radio. Check with:
+ *
+ *     west build -b nucleo_wl55jc -t dts | grep -B2 -A14 subghz
+ *
+ * If the node is already there, the right change to this file is to delete the
+ * &subghzspi block and keep only the property overrides.
+ */
+&subghzspi {
+	status = "okay";
+
+	lora: radio@0 {
+		compatible = "st,stm32wl-subghz-radio";
+		reg = <0>;
+		status = "okay";
+		spi-max-frequency = <8000000>;
+
+		/*
+		 * REGULATORY SETTING. "rfo-hp" selects the high-power PA path, which
+		 * is what a basement-to-gateway link budget wants and what the
+		 * Nucleo's HP matching network is built for. It must agree with the
+		 * board's front-end switch wiring. On a RAK3172 this choice is fixed
+		 * by the module's internal matching — take it from the module
+		 * datasheet, not from this file.
+		 */
+		power-amplifier-output = "rfo-hp";
+		rfo-lp-max-power = <15>;
+		rfo-hp-max-power = <22>;
+	};
+};
+
+/ {
+	aliases {
+		/* main.c resolves the radio through DT_ALIAS(lora0). */
+		lora0 = &lora;
+	};
+
+	zephyr,user {
+		/*
+		 * NO BATTERY ADC ON THIS TARGET, on purpose.
+		 *
+		 * A Nucleo is powered from ST-LINK USB or an external supply; there
+		 * is no cell to measure, so publishing an io-channels property here
+		 * would mean reporting a number with no physical meaning. main.c
+		 * handles the absence explicitly: read_battery_mv() returns -ENODEV
+		 * and the sample loop reports 0 mV rather than inventing a voltage,
+		 * because the backend's battery column feeds a risk-register metric
+		 * (08-roadmap.md §8 risk 4) and must not be fed a fiction.
+		 *
+		 * This also means the no-ADC code path is exercised by a real build
+		 * target rather than only by the host tests.
+		 *
+		 * On a RAK3172-based board, add the divider here and set
+		 * CONFIG_APP_BATT_DIVIDER_NUM/DEN from its schematic:
+		 *
+		 *     io-channels = <&adc1 5>;
+		 *
+		 * with a matching channel@5 node under &adc1 and the ADC input pin
+		 * added to that node's pinctrl.
+		 */
+
+		/* VERIFY (3): B1 user button on the Nucleo is PA0. Used for the BLE
+		 * field-recovery window, which on this target only matters if a BLE
+		 * build is made — the STM32WLE5 has no Bluetooth controller, so the
+		 * production BLE+LoRa part is the RAK11720 ($7.99) and not this one
+		 * (06-hardware-and-devkits.md). With CONFIG_BT=n this property is
+		 * simply unused. */
+		ble-button-gpios = <&gpioa 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+	};
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * A note on CONFIG_BT on this target, because it is a real BOM consequence
+ * ---------------------------------------------------------------------------
+ * prj.conf turns BLE on, and that is correct for the RAK4631 primary target.
+ * The STM32WLE5 has no Bluetooth radio, so a build for this board must either
+ * drop CONFIG_BT (and with it CONFIG_MCUMGR_TRANSPORT_BT) or move to a part
+ * that has both — RAK11720 at $7.99, which is what 08-roadmap.md §3 P2 names
+ * for the "if you do need BLE in the product" case. Use an overlay conf file
+ * rather than editing prj.conf, so the primary target stays untouched:
+ *
+ *     west build -b nucleo_wl55jc -- -DEXTRA_CONF_FILE=no_ble.conf
+ *
+ * That trade-off is the whole second-source question in miniature: the $5.99
+ * part is cheaper precisely because it does one radio, and dropping BLE means
+ * dropping mcumgr-over-BLE field recovery — which 08-roadmap.md §4 lists as a
+ * P2 deliverable and which is how a bricked node gets rescued without a WAN.
+ * It is a decision to make with the BOM in front of you, not a config tweak.
+ */

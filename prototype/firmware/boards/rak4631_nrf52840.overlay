@@ -1,0 +1,244 @@
+/*
+ * rak4631_nrf52840.overlay — primary board target.
+ *
+ * RAK WisBlock: RAK19007 base ($9.99) + RAK4631 core ($17.99) = nRF52840
+ * (Cortex-M4F, 1 MB flash / 256 KB RAM) plus an SX1262, pre-certified as a
+ * module. 06-hardware-and-devkits.md picks this exact pair as the fastest route
+ * to a bench node that has LoRa and BLE together with certificates already in
+ * hand.
+ *
+ * NOT BUILT OR FLASHED. There is no Zephyr tree on the machine this was written
+ * on, so nothing here has been through dtc. Blocks marked VERIFY are the ones a
+ * reviewer with a tree should check first, in the order given.
+ *
+ * ===========================================================================
+ * ANTENNA AND RF — READ BEFORE CHANGING ANYTHING IN THE &spi2 BLOCK
+ * ===========================================================================
+ * The RAK4631 is sold with a modular FCC/ISED grant, and that grant is what
+ * makes this a $1.5-5k certification line item instead of a $20-60k one
+ * (08-roadmap.md §3, P2: "FCC via modular inheritance"). Modular approval is
+ * conditional, and the conditions that bite are about the antenna:
+ *
+ *   - the antenna must be one of the types and gains named in the module
+ *     grant, fed through the trace impedance the grant assumes;
+ *   - a higher-gain antenna, a different connector, a redesigned feed, or a
+ *     conducted power above the granted limit all take the product OUTSIDE the
+ *     modular approval;
+ *   - outside it, the product is an intentional radiator you own end to end,
+ *     which means a full FCC Part 15C campaign — a five-figure spend and
+ *     weeks of lab calendar, repeated for every variant.
+ *
+ * 08-roadmap.md P2 says it in four words: "read the module grant's antenna
+ * conditions before layout." The grant is downloadable from RAK
+ * (06-hardware-and-devkits.md records that the FCC/ISED certificates are
+ * direct downloads, though it also notes the FCC ID string is not printed on
+ * the product page — get the actual grant PDF, not the marketing claim).
+ *
+ * The tx-enable/rx-enable/dio2 arrangement below is the module's RF switch.
+ * Getting it wrong does not merely degrade range: driving the PA into a
+ * mis-switched front end radiates out of specification while looking fine in
+ * software, which is the failure mode that invalidates a pre-compliance scan.
+ * ===========================================================================
+ */
+
+/*
+ * VERIFY (0): these four dt-binding headers are the ones that carry the macros
+ * used below — ADC_ACQ_TIME/ADC_GAIN_*, NRF_SAADC_AIN*, GPIO_ACTIVE_*, and
+ * SX126X_DIO3_TCXO_*. Their paths are from memory, not from a tree on this
+ * machine. A wrong path fails at the preprocessor with the filename in the
+ * message, so this is the cheapest of all the VERIFY items to resolve.
+ */
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/adc/nrf-saadc.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/lora/sx126x.h>
+
+/*
+ * ---------------------------------------------------------------------------
+ * The two TMP117s. Pipe at 0x48, ambient at 0x49.
+ * ---------------------------------------------------------------------------
+ * Two TMP117s and not an NTC divider, because the signal is a small persistent
+ * delta against a noisy, drifting room and an NTC cannot resolve it
+ * (06-hardware-and-devkits.md, "Use two TMP117, not an NTC divider"). The
+ * TMP117 is a +/-0.1 C class part at $3.62-3.73 @1k, which is the single
+ * largest sensing line in the BOM and is worth it for exactly that reason.
+ *
+ * Addressing: the TMP117's ADD0 pin selects 0x48 (GND) or 0x49 (V+), so these
+ * two addresses are the no-extra-parts way to get both channels on one bus.
+ *
+ * RESOLVED 2026-10-14 against upstream zephyr main: neither `ti,tmp117` nor
+ * `ti,tmp116` exists as a binding any more. They were consolidated into
+ * dts/bindings/sensor/ti,tmp11x.yaml (compatible "ti,tmp11x", one driver at
+ * drivers/sensor/ti/tmp11x covering TMP116/TMP117/TMP119), so that is what both
+ * nodes below use, with CONFIG_TMP11X in prj.conf.
+ *
+ * The binding also exposes `odr` and `oversampling` properties, both defaulting
+ * to the part's power-up configuration (1000 ms, 8-sample averaging). Those
+ * defaults are left in place deliberately: 8-sample averaging is what buys the
+ * low noise this detector needs to see a sub-degree persistent delta, and the
+ * sampling interval is driven by the app's own duty cycle, not by the sensor's
+ * continuous-conversion rate.
+ *
+ * VERIFY (2): the WisBlock I2C instance. This assumes i2c1, which is what the
+ * RAK4631 board support uses for the WisBlock sensor bus. Confirm against
+ * boards/rakwireless/rak4631/rak4631_nrf52840.dts, and do not add pinctrl here
+ * — the board DTS owns the pin mapping and overriding it from an overlay is how
+ * you end up driving the wrong pads.
+ */
+&i2c1 {
+	status = "okay";
+	/* 100 kHz standard mode, written as a literal to avoid depending on
+	 * whether I2C_BITRATE_STANDARD is reachable from a dt-bindings header in
+	 * this tree. Two TMP117s produce two 16-bit reads a minute; there is
+	 * nothing to gain from fast mode and signal integrity to lose. */
+	clock-frequency = <100000>;
+
+	pipe_temp: tmp117@48 {
+		compatible = "ti,tmp11x";
+		reg = <0x48>;
+		status = "okay";
+	};
+
+	ambient_temp: tmp117@49 {
+		compatible = "ti,tmp11x";
+		reg = <0x49>;
+		status = "okay";
+	};
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * SX1262 on SPI. See the antenna warning at the top of this file.
+ * ---------------------------------------------------------------------------
+ * VERIFY (3), and this one can fail the build loudly, which is the intended
+ * behaviour: the in-tree RAK4631 board DTS is expected to instantiate the
+ * SX1262 itself, on spi2, as `lora: sx1262@0`. Re-stating the same node at the
+ * same path with the same name merges cleanly and is a no-op. If the upstream
+ * node is spelled differently — `lora@0`, say — dtc will reject the duplicate
+ * `lora` label and the build will stop with a clear message. That is far better
+ * than the alternative failure, which would be a second, silent, non-functional
+ * radio node. Check with:
+ *
+ *     west build -b rak4631/nrf52840 -t dts | grep -B2 -A16 sx126
+ *
+ * and if the names differ, delete this &spi2 block and keep only the property
+ * overrides you actually need.
+ *
+ * The GPIO assignments below are the RAK4631 module's documented SX1262
+ * connections. They are TAKEN FROM THE BOARD SUPPORT AND MODULE DATASHEET, not
+ * invented — but they are also exactly the thing 05-open-source-stack.md §5.3
+ * flags as "pin names are placeholders: take the real ones from the module
+ * datasheet", so check them against the RAK4631 schematic rather than trusting
+ * this file.
+ */
+&spi2 {
+	status = "okay";
+
+	lora: sx1262@0 {
+		compatible = "semtech,sx1262";
+		reg = <0>;
+		status = "okay";
+
+		/* 1 MHz is conservative and costs nothing: the SX1262 command
+		 * traffic is tiny and SPI integrity through a module's castellated
+		 * pads is worth more than the microseconds. */
+		spi-max-frequency = <1000000>;
+
+		reset-gpios = <&gpio1 10 GPIO_ACTIVE_LOW>;
+		busy-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		dio1-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
+
+		/* RF switch. The RAK4631 routes the antenna switch from DIO2, so
+		 * `dio2-tx-enable` is set and there are no separate tx/rx enable
+		 * GPIOs; the discrete tx-enable-gpios / rx-enable-gpios form in
+		 * 05-open-source-stack.md §5.3 is for a board that switches in
+		 * discrete logic instead. One or the other — never both. */
+		dio2-tx-enable;
+		antenna-enable-gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;
+
+		/* The module has a 32 MHz TCXO powered from DIO3 at 1.8 V. Both of
+		 * these matter more than they look: a TCXO that has not settled
+		 * produces a frequency error that reads as "no coverage", and that
+		 * is one of the standard multi-day debugging detours on SX126x. */
+		dio3-tcxo-voltage = <SX126X_DIO3_TCXO_1V8>;
+		tcxo-power-startup-delay-ms = <5>;
+	};
+};
+
+/ {
+	aliases {
+		/* main.c resolves the radio through DT_ALIAS(lora0), which is what
+		 * Zephyr's own LoRaWAN sample does. Harmless if the board DTS
+		 * already defines it to the same node. */
+		lora0 = &lora;
+	};
+
+	/*
+	 * -------------------------------------------------------------------
+	 * Application-specific GPIO/ADC, on the `zephyr,user` node.
+	 * -------------------------------------------------------------------
+	 * `zephyr,user` is Zephyr's documented catch-all for an application's own
+	 * devicetree references. It is used here instead of inventing a private
+	 * binding for the battery divider, because the divider is a property of
+	 * the carrier board — the WisBlock base and our own P2 PCB will not have
+	 * the same resistors, and a binding would imply a stability this does not
+	 * have.
+	 */
+	zephyr,user {
+		/* Battery sense. VERIFY (4): the SAADC input and the divider ratio
+		 * must come from the RAK19007 base-board schematic and then be
+		 * checked with a meter against a known cell voltage. They are NOT
+		 * verified here. Set CONFIG_APP_BATT_DIVIDER_NUM/DEN to match; both
+		 * default to 1 (no divider) so that a wrong ratio shows up as an
+		 * obviously wrong voltage rather than a plausible wrong one. */
+		io-channels = <&adc 0>;
+
+		/* Reed switch / button for the BLE field-recovery window. An
+		 * installer standing at an unresponsive node needs a way to open an
+		 * mcumgr window without a WAN, a gateway or a cloud (05 §5.1:
+		 * "re-flash a bricked node over BLE, no WAN needed"). A reed switch
+		 * is preferred over a button on a sealed enclosure.
+		 * VERIFY (5): pin from the carrier schematic. */
+		ble-button-gpios = <&gpio0 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+
+		/*
+		 * Valve drive lines are intentionally absent on this board.
+		 * CONFIG_APP_VALVE_PRESENT defaults to n because the year-1 SKU is
+		 * sensor-only (08-roadmap.md §10). When a valve carrier exists, add:
+		 *
+		 *     valve-close-gpios = <&gpio0 X GPIO_ACTIVE_HIGH>;
+		 *     valve-open-gpios  = <&gpio0 Y GPIO_ACTIVE_HIGH>;
+		 *
+		 * and note that main.c configures both as GPIO_OUTPUT_INACTIVE at
+		 * boot, so a latching solenoid comes up de-energised and holding
+		 * whatever position it was in. That is fail-as-is implemented in
+		 * hardware rather than argued in software.
+		 */
+	};
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * SAADC channel for the battery divider.
+ * ---------------------------------------------------------------------------
+ * ADC_GAIN_1_6 against the 0.6 V internal reference puts full scale at 3.6 V.
+ * A Li-SOCl2 cell sits at 3.6 V nominal and can read ~3.67 V at open circuit,
+ * so the external divider must bring the pin below full scale with margin —
+ * which is the other reason the divider ratio above has to be a measured
+ * number and not a guess. 08-roadmap.md §8 risk 7: Li-SOCl2 with a hybrid-layer
+ * capacitor, never coin cells, and derate the datasheet capacity about 40%.
+ */
+&adc {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@0 {
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1_6";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40)>;
+		zephyr,input-positive = <NRF_SAADC_AIN0>;
+		zephyr,resolution = <12>;
+	};
+};

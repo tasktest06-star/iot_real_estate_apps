@@ -1,0 +1,57 @@
+# UNVERIFIED: there is no Docker on the machine this prototype was built on, so
+# this file has never been run. It is written to be correct and is marked
+# unverified rather than silently presented as tested. `make run` and `make e2e`
+# are the paths that are actually exercised.
+#
+# The pack argues (05-open-source-stack.md §5.1) for a ~$95-115/month
+# self-hosted stack at 10,000 devices. This compose file is the single-node
+# development slice of it: the backend plus a LoRaWAN network server. It does
+# NOT include VerneMQ, IoTDB or Superset -- those earn their place at scale, not
+# on a laptop, and adding them here would be cargo-culting the architecture
+# diagram.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # SQLite is the right call at this scale; see the $6/mo VPS argument in
+      # 04-connectivity.md §4.3.
+      LEAK_DB_PATH: /data/leak.db
+    volumes:
+      - backend-data:/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/v1/healthz')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # The Things Stack open source: Apache-2.0, and the Join Server is in-tree, so
+  # you hold your own root keys (05-open-source-stack.md §5.1). Commented out by
+  # default because it needs real config and certs to do anything useful, and a
+  # half-configured LNS is worse than none.
+  #
+  # tts:
+  #   image: thethingsnetwork/lorawan-stack:3.36.2
+  #   depends_on: [postgres, redis]
+  #   ports: ["1700:1700/udp", "8885:8885"]
+  #   volumes: ["./deploy/tts:/srv/ttn-lorawan/config"]
+  #
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_PASSWORD: root
+  #   volumes: ["tts-postgres:/var/lib/postgresql/data"]
+  #
+  # redis:
+  #   image: redis:7-alpine
+  #   volumes: ["tts-redis:/data"]
+
+volumes:
+  backend-data:
+  # tts-postgres:
+  # tts-redis:

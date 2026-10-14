@@ -41,7 +41,7 @@ which a pre-certified radio module largely pays for already.
 | **A1** | Clamp-on thermal whole-home leak sensor | water | $22–35 | **$31k–94k** | 6–9 | 1 | 2 | 3 | **START** |
 | **A2** | Point/puck leak sensors + in-home hub | water | $8–14 | $20k–50k | **4–6** | 1 | 1 | 1 | **START** |
 | **A3** | Multifamily in-suite network on a building gateway | water | $10–18 | $25k–60k | 5–8 | 1 | 2 | **4** | **START** |
-| **A4** | Freeze and pipe-temperature risk monitoring | water | $6–12 | **$0–15k** | **3–5** | 1 | 1 | 2 | **START** |
+| **A4** | Freeze and pipe-temperature risk monitoring | water | $6–12 | **$0–15k** | **3–5** | 1 | 3 | 2 | **START** |
 | **A5** | Sump pump and basement water monitoring | water | $14–22 | $20k–45k | 5–7 | 1 | 2 | 2 | **START** |
 | **A6** | Resell/integrate a third-party certified valve | water | resold | **$0–10k** | **3–6** | **0** | 1 | 1 | **START** |
 | **A7** | Advisory shutoff — monitored response, no actuator | water | $0 | $0–20k | 3–6 | **0** | 1 | 3 | **START** |
@@ -98,13 +98,28 @@ buying trigger is **insurability rather than a discount** — The Alexander's $1
 story sells itself and requires nobody to file anything. Brokers (Aon, HUB, USI) are the door.
 Price to beat: ProSentry's **~$70/sensor + $1/sensor/month**.
 
-### A4 — Freeze and pipe-temperature risk monitoring · **free upside**
+### A4 — Freeze and pipe-temperature risk monitoring · **cheaper than it is easy**
 
 You are already measuring pipe temperature for A1. Freeze risk is the same sensor, a different
 threshold, and a *separately sellable* peril — Ting bundles low-temperature warning for exactly this
 reason. **Capex $0–15k** because it is a firmware and cloud feature on hardware you already ship.
 Strongly seasonal, which cuts both ways: it is the easiest thing to sell in October and the hardest
 in June.
+
+> **Measured correction (2026-10-14).** An earlier version of this entry called A4 "free upside".
+> The prototype in [`prototype/`](prototype/) says the *hardware* is free and the *discrimination* is
+> not. A safe cold basement and a genuine freeze event overlap badly: in the synthetic corpus a
+> `cold_basement_winter` pipe bottoms out at +2.50 °C while a real `freeze_event` reaches −5.25 °C,
+> but both spend time in the 2.5–4.0 °C band. At the conventional 40 °F (4.0 °C) setpoint the
+> nuisance rate was **12.2 alerts per device-year against a 0.50 gate** — 45 of 61 nuisance alerts
+> came from cold-but-perfectly-fine basements. Dropping the setpoint to 2.0 °C passes the gate but
+> catches only **9 of 31 freeze events (29%)**.
+>
+> So A4 is real but it is a second algorithm, not a second threshold: it needs rate-of-fall or the
+> ambient trend, which the sensor already reports. `tech_risk` in
+> `data/application-scores.csv` is raised from 1 to 3 accordingly. The trade-off sweep is in
+> [`prototype/detection/README.md`](prototype/detection/README.md); the leak product's own nuisance
+> rate (0.338/device-year) passes independently, so this does not block A1.
 
 ### A5 — Sump pump and basement water monitoring · **underserved**
 
