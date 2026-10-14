@@ -1,0 +1,30 @@
+variant,item,part,qty,unit_usd,evidence,note
+A1 clamp-on thermal sensor,Radio + MCU module,RAK3172 (STM32WLE5),1,5.99,vendor-published,store.rakwireless.com; FCC+ISED+CE+LoRa-Alliance certs downloadable
+A1 clamp-on thermal sensor,Radio + MCU alternate (adds BLE),RAK11720 (Apollo3 Blue + SX1262),1,7.99,vendor-published,Only sub-10 USD part with LoRa+BLE on one die
+A1 clamp-on thermal sensor,Second source (same STM32WLE5 die),Seeed Wio-E5,1,6.49,vendor-published,Different vendor - makes a dual-source BOM genuinely achievable
+A1 clamp-on thermal sensor,Pipe temperature sensor,TI TMP117,1,3.62,vendor-published,Price at 1k; plus or minus 0.1 C class matters for a small persistent delta-T
+A1 clamp-on thermal sensor,Ambient temperature sensor,TI TMP117,1,3.62,vendor-published,Second channel - delta-T is the signal
+A1 clamp-on thermal sensor,Tamper/sanity channel,NTC thermistor,1,0.15,estimate,Not the primary - self-heating and tolerance eat the signal
+A1 clamp-on thermal sensor,Battery,Li-SOCl2 AA 2400 mAh,2,2.50,estimate,Derate datasheet capacity ~40 pct for cold basements
+A1 clamp-on thermal sensor,Pulse support,Hybrid-layer capacitor,1,1.20,estimate,Li-SOCl2 cannot serve the TX pulse alone
+A1 clamp-on thermal sensor,Antenna,Chip or wire 915 MHz,1,0.45,estimate,Must match the module grant's antenna conditions or modular approval is void
+A1 clamp-on thermal sensor,PCB + assembly,4-layer 40x60 mm,1,3.50,estimate,At 1k units via Seeed Fusion or JLCPCB
+A1 clamp-on thermal sensor,Enclosure + spring clip + thermal pad,Injection moulded ABS/PC,1,4.00,estimate,Amortised tooling excluded - see cert-costs.csv
+A1 clamp-on thermal sensor,TOTAL,,,27.03,estimate,Mid-point BOM at 1k units; excludes tooling freight duty and test
+A1b acoustic variant add-on,Wake-on-sound MEMS mic,TDK InvenSense T5838,1,2.80,estimate,20 uA Acoustic Activity Detect is what makes battery acoustic viable at all
+A1b acoustic variant add-on,Cheaper mic alternative,Knowles SPH0645LM4H-B,1,1.45,vendor-published,I2S digital MEMS mic at 1k
+A1b acoustic variant add-on,Vibration alternative (premium SKU only),ST IIS3DWB,1,13.10,vendor-published,2-3x the whole radio module - commercial SKU only
+A3 multifamily node,Radio + MCU module,RAK3172,1,5.99,vendor-published,
+A3 multifamily node,Leak probe,Gold-plated contact pair,1,0.80,estimate,Milesight WS303 triggers at 0.5 mm as the benchmark to beat
+A3 multifamily node,Battery,CR2450 590 mAh,1,0.75,estimate,Milesight WS303 achieves ~5.7 yr on this cell
+A3 multifamily node,PCB + enclosure (IP67),,1,4.50,estimate,
+A3 multifamily node,TOTAL,,,12.04,estimate,Per in-suite node at 1k units
+A3 multifamily gateway,Building gateway,RAK7289V2 WisGate Edge Pro,1,382.00,vendor-published,Amortised across dozens of nodes - this is where LoRaWAN economics work
+A3 multifamily gateway,Cheaper indoor option,RAK7268V2 WisGate Edge Lite 2,1,154.00,vendor-published,
+A3 multifamily gateway,Cellular-backhaul option,RAK7268CV2-V (Verizon),1,299.00,vendor-published,Removes the customer's router from your support burden
+D plug-in detector,Radio + MCU module,ESP32-C6-WROOM-1-N8,1,2.85,vendor-published,Espressif sample price; 3.13 at 500 via Mouser
+D plug-in detector,Metering AFE (pragmatic path),ST STPM34,1,1.59,vendor-published,Cheapest credible AFE by ~1.5x at 1k
+D plug-in detector,Metering AFE (harmonics-capable),ADI ADE9000,1,10.39,vendor-published,ADI direct at 1k
+D plug-in detector,Isolated fast ADC (arc path),TI AMC130M03,1,0.00,unverified,NO DISTRIBUTOR STOCK FOUND - do not design in without a TI supply commitment
+D plug-in detector,Connector-heating sensor,TMP117 or DS18B20,1,3.62,vendor-published,Ting itself carries an internal board temperature sensor
+D plug-in detector,Enclosure,Polycarbonate UL94 V-0,1,2.50,estimate,V-0 is table stakes for a mains product

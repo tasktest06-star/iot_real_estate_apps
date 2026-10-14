@@ -1,0 +1,23 @@
+product,line_item,low_usd,high_usd,evidence,source_note
+A clamp-on leak sensor,FCC/ISED composite + unintentional radiator (module grant inherited),1500,5000,estimate,Floor anchored to Sunfire Testing published EMC from 999 USD
+A clamp-on leak sensor,LoRa Alliance membership (Adopter; startup rate under 1M USD revenue),3000,6000,vendor-published,lora-alliance.org/become-a-member
+A clamp-on leak sensor,LoRaWAN certification - end device at Authorised Test Lab,1200,1700,vendor-published,lora-alliance.org/lorawan-certification (1200 ATL / 1700 self-test)
+A clamp-on leak sensor,Plumbing listing,0,0,verified,No wetted surface - IGC/NSF out of scope
+A clamp-on leak sensor,NRTL safety listing,0,0,verified,Battery powered - no mains inside the enclosure
+A clamp-on leak sensor,Standards documents (UL 94 if claiming V-0),0,998,vendor-published,shopulstandards.com UL 94 Ed.7
+A clamp-on leak sensor,Tooling + EVT/DVT + freedom-to-operate opinion,25000,80000,estimate,FTO needed against LeakBot/Homeserve thermal family
+B retrofit lever actuator,Radio certification (shared module; Class II or new composite),1500,5000,estimate,
+B retrofit lever actuator,LoRaWAN certification (child device on same stack),200,1200,vendor-published,lora-alliance.org child-device variants 200-750
+B retrofit lever actuator,Plumbing listing,0,0,verified,No wetted surface
+B retrofit lever actuator,NRTL (only if a mains-powered variant ships),8000,25000,estimate,
+B retrofit lever actuator,Mechanical development - gearbox + torque limiting + universal lever grip,60000,200000,estimate,The dominant cost and the reason this is a spike not a product
+D plug-in electrical detector,FCC/ISED composite testing,1500,5000,estimate,
+D plug-in electrical detector,NRTL listing to UL 498 + UL 60730-1 + UL 94,15000,40000,estimate,No NRTL publishes prices; get three quotes (Intertek ETL / QPS / UL)
+D plug-in electrical detector,NRTL annual follow-up service and factory inspections,2000,8000,estimate,Recurring - routinely forgotten in first-year budgets
+D plug-in electrical detector,Matter certification (CSA Adopter 7500 + 3000 per product),10500,10500,vendor-published,csa-iot.org/become-member
+D plug-in electrical detector,UL 1699 AFCI - ONLY IF THE DEVICE INTERRUPTS THE CIRCUIT,60000,200000,estimate,Avoid entirely; Ting alerts and never interrupts
+D plug-in electrical detector,HV front end + isolation design + arc classifier,150000,500000,estimate,The detection algorithm is the product; no open AC arc dataset exists
+E inline motorised valve,IAPMO IGC 115 and/or IGC 349 listing + R&T,15000,45000,estimate,Standards identifiers verified at iapmostandards.org
+E inline motorised valve,NSF/ANSI 61 + 372 wetted-material qualification,10000,35000,estimate,nsf.org returned 403; cost unverified
+E inline motorised valve,cUPC / CSA B125.3 for Canada,5000,20000,estimate,
+E inline motorised valve,UL 60730 functional safety for the control,12000,35000,estimate,

@@ -1,0 +1,90 @@
+repo,license,commercial_ok,layer,role,license_file,verified
+zephyrproject-rtos/zephyr,Apache-2.0,yes,device-rtos,Only RTOS giving BLE + LoRaWAN + Matter in one Apache-2.0 tree; keeps STM32WL / nRF52840 / ESP32-C6 all on the table,LICENSE,2026-10-14
+zephyrproject-rtos/sdk-ng,Apache-2.0,yes,device-rtos,Zephyr SDK toolchains; pin it for reproducible builds and audit trails,LICENSE,2026-10-14
+nrfconnect/sdk-zephyr,Apache-2.0,yes,device-rtos,Nordic's Zephyr fork - Apache-2.0; the Apache part of the NCS sandwich,LICENSE,2026-10-14
+espressif/esp-idf,Apache-2.0,yes,device-rtos,Best choice for the mains-powered plug device where Wi-Fi/Thread and a dual-core are free,LICENSE,2026-10-14
+apache/nuttx,Apache-2.0,yes,device-rtos,POSIX RTOS; useful to port Linux-authored DSP to MCU. No first-class LoRaWAN subsystem,LICENSE,2026-10-14
+RT-Thread/rt-thread,Apache-2.0,yes,device-rtos,3 KB flash Nano tier; thin North American ecosystem - only if sourcing a Chinese MCU,LICENSE,2026-10-14
+apache/mynewt-nimble,Apache-2.0,yes,device-ble,Only standalone Apache-2.0 BLE host AND controller; your escape hatch from Nordic's SoftDevice blob,LICENSE,2026-10-14
+mcu-tools/mcuboot,Apache-2.0,yes,device-ota,Secure boot + signed A/B update with rollback; the difference between a bad OTA and a mass flooding event,LICENSE,2026-10-14
+Lora-net/LoRaMac-node,BSD-3-Clause,yes,device-lorawan,Semtech reference MAC - in maintenance mode; what Zephyr CONFIG_LORAWAN actually compiles,LICENSE,2026-10-14
+StackForce/LoRaMac-node,BSD-3-Clause,yes,device-lorawan,StackForce maintains the Semtech MAC; no separate public StackForce stack exists,LICENSE.txt,2026-10-14
+Lora-net/SWL2001,BSD-3-Clear,care,device-lorawan,LoRa Basics Modem - Semtech's recommendation for new designs. CLEAR BSD GRANTS NO PATENT RIGHTS,LICENSE,2026-10-14
+jgromes/RadioLib,MIT,yes,device-lorawan,Fastest bench prototype; Class A + C; pre-certified for Class A,license.txt,2026-10-14
+lora-rs/lora-rs,MIT,yes,device-lorawan,no_std Rust LoRaWAN; memory safety as an insurer-trust argument,LICENSE,2026-10-14
+mcci-catena/arduino-lmic,MIT-root-EPL-files,review,device-lorawan,Root LICENSE is MIT but LMIC-derived files carry EPL-1.0 and some AES code is LGPL - per-file audit required before embedding,LICENSE,2026-10-14
+lorabasics/basicstation,BSD-3-Clause,yes,gateway,Needs no inbound connections and no local time sync - works behind a homeowner's NAT. Strictly better than the UDP forwarder,LICENSE,2026-10-14
+TheThingsNetwork/lorawan-stack,Apache-2.0,yes,network-server,The Things Stack - only Apache-2.0 LNS; Join Server in-tree so you hold your own root keys,LICENSE,2026-10-14
+chirpstack/chirpstack,MIT,yes,network-server,Leaner Rust LNS; runs on SQLite. MIT not Apache-2.0 - no patent grant,LICENSE,2026-10-14
+project-chip/connectedhomeip,Apache-2.0,care,device-matter,Matter SDK; ships examples/water-leak-detector-app (Linux only so far). Upstream says examples are not production-ready,LICENSE,2026-10-14
+espressif/esp-matter,Apache-2.0,yes,device-matter,Production wrapper with manufacturing/DAC provisioning - the factory path CSA certification needs,LICENSE,2026-10-14
+openthread/openthread,BSD-3-Clause,yes,device-thread,Thread stack - IPv6/6LoWPAN mesh. NOTE: BSD-3 not Apache-2.0 despite common belief,LICENSE,2026-10-14
+automatous-io/shelly-1-gen4-matter-thread,Apache-2.0,yes,reference-design,ESP32-C6 Matter-over-Thread firmware controlling a relay - a working template for a valve controller,LICENSE,2026-10-14
+golioth/golioth-firmware-sdk,Apache-2.0,yes,device-mgmt,OTA + RPC + PKI cert rotation; CI-tested on Zephyr/ESP-IDF/NCS. Client Apache-2.0; cloud is paid SaaS,LICENSE,2026-10-14
+mendersoftware/mender,Apache-2.0,yes,device-mgmt,A/B rootfs OTA with rollback - for embedded Linux gateways not MCUs,LICENSE,2026-10-14
+memfault/memfault-firmware-sdk,Memfault-License,review,device-mgmt,Best crash triage available but the licence is vendor-specific - do not file this under open source,LICENSE,2026-10-14
+nrfconnect/sdk-nrf,Nordic-5-Clause,care,device-rtos,Closed products permitted BUT usable only with Nordic silicon and binaries must not be reverse engineered - BOM locked for the life of the firmware,LICENSE,2026-10-14
+nrfconnect/sdk-nrfxlib,Nordic-5-Clause,care,device-rtos,Binary blobs: SoftDevice Controller / nrf_modem / MPSL / nrf_802154. Same chip-lock as sdk-nrf,LICENSE,2026-10-14
+NordicSemiconductor/nrfx,BSD-3-Clause,yes,device-hal,Nordic peripheral HAL - this part is genuinely BSD-3,LICENSE,2026-10-14
+Mbed-TLS/mbedtls,Apache-2.0,yes,device-security,TLS/DTLS + PSA Crypto. Dual Apache-2.0 OR GPL-2.0+ - elect Apache-2.0 in writing,LICENSE,2026-10-14
+MicrochipTech/cryptoauthlib,Microchip-proprietary,care,device-security,ATECC608 secure element library - usable exclusively with Microchip products. Right idea for LoRaWAN key storage; wrong licence to call open,LICENSE,2026-10-14
+absmach/magistrala,Apache-2.0,yes,backend,The Apache-2.0 ThingsBoard replacement: mTLS + ABAC/RBAC + audit logs + multi-tenancy - what a carrier security review asks for,LICENSE,2026-10-14
+thingsboard/thingsboard,BUSL-1.1,no,backend,DISQUALIFIED: free commercial use caps at 100 devices and one server. Last Apache-2.0 release was v3.9.1,LICENSE,2026-10-14
+openremote/openremote,AGPL-3.0,no,backend,AGPL section 13 network copyleft reaches a carrier-facing portal,LICENSE.txt,2026-10-14
+node-red/node-red,Apache-2.0,yes,integration,Per-carrier integration glue; avoids a sprint per carrier when every one wants a bespoke payload shape,LICENSE,2026-10-14
+home-assistant/core,Apache-2.0,yes,distribution,Apache-2.0 and the liveliest community measured - the cheapest consumer distribution channel in this market,LICENSE.md,2026-10-14
+vernemq/vernemq,Apache-2.0,yes,broker,The Apache-2.0 answer to EMQX: MQTT 5.0 + clustering + multitenancy,LICENSE.txt,2026-10-14
+emqx/emqx,BUSL-1.1,no,broker,DISQUALIFIED: from v5.9.0 clustering requires a paid licence file. Single node only otherwise,LICENSE,2026-10-14
+nanomq/nanomq,MIT,yes,broker,Ultra-light edge broker - run it on the in-home hub so the house keeps working when the WAN drops,LICENSE.txt,2026-10-14
+mochi-mqtt/server,MIT,yes,broker,Embeddable Go MQTT v5 - compile the broker into your backend and delete a deployed service,LICENSE,2026-10-14
+eclipse-mosquitto/mosquitto,EPL-2.0-or-EDL-1.0,yes,broker,Dual licensed - elect EDL-1.0 and it is effectively BSD-3. No clustering,LICENSE.txt,2026-10-14
+apache/iotdb,Apache-2.0,yes,timeseries,Device/sensor hierarchy maps natively onto property -> device -> channel,LICENSE,2026-10-14
+VictoriaMetrics/VictoriaMetrics,Apache-2.0,care,timeseries,Single binary and cheap; cluster is Apache-2.0 too. Downsampling is Enterprise-only - you will hit this with 1 Hz flow data,LICENSE,2026-10-14
+timescale/timescaledb,Apache-2.0-plus-TSL,care,timeseries,Compression and continuous aggregates live in tsl/ under the Timescale Licence - the Apache-2.0 subset is barely more than partitioned Postgres,LICENSE,2026-10-14
+influxdata/influxdb,Apache-2.0,yes,timeseries,Dual MIT or Apache-2.0 at the user's choice - the cleanest licence posture of any TSDB here,LICENSE-APACHE,2026-10-14
+prometheus/prometheus,Apache-2.0,yes,ops,For your own infrastructure health - not device telemetry,LICENSE,2026-10-14
+apache/superset,Apache-2.0,yes,dashboards,Your Grafana replacement; extensible RBAC matters when a carrier gets a scoped portfolio view,LICENSE.txt,2026-10-14
+perses/perses,Apache-2.0,yes,dashboards,CNCF dashboards-as-code for internal fleet health,LICENSE,2026-10-14
+grafana/grafana,AGPL-3.0,no,dashboards,AGPL-3.0-only since 2021 - embedding in a customer-facing portal triggers network copyleft,LICENSE,2026-10-14
+apache/airflow,Apache-2.0,yes,orchestration,Nightly model retraining and carrier report generation,LICENSE,2026-10-14
+apache/streampipes,Apache-2.0,yes,backend,Lets a non-engineer analyst build a burst-detection rule without a deploy,LICENSE,2026-10-14
+keycloak/keycloak,Apache-2.0,yes,backend,Auth and SSO - carriers will ask for SAML/OIDC,LICENSE.txt,2026-10-14
+eclipse-hawkbit/hawkbit,EPL-2.0,care,device-mgmt,Self-hosted update server; EPL is survivable as an unmodified standalone server you never link into firmware,LICENSE,2026-10-14
+eclipse-hono/hono,EPL-2.0,care,backend,Telemetry/command abstraction; heavy AMQP stack for a three-person team,LICENSE,2026-10-14
+tensorflow/tflite-micro,Apache-2.0,yes,edge-ml,Still the MCU inference path - LiteRT has no microcontroller support despite the rename,LICENSE,2026-10-14
+google-ai-edge/LiteRT,Apache-2.0,care,edge-ml,Successor to TF Lite for phones and Linux - NOT for microcontrollers. Do not migrate on the strength of the name,LICENSE,2026-10-14
+ARM-software/CMSIS-DSP,Apache-2.0,yes,edge-dsp,The real workhorse: FFT/MFCC/DCT/filters/SVM serve acoustic leak signatures AND arc spectral features AND flow filtering,LICENSE,2026-10-14
+ARM-software/CMSIS-NN,Apache-2.0,yes,edge-ml,int8/int16 kernels for Cortex-M4 - your STM32WL and nRF52840 class; roughly 4x free speedup,LICENSE,2026-10-14
+majianjia/nnom,Apache-2.0,yes,edge-ml,Keras to C in one step with on-device confusion matrices - useful for field debugging,LICENSE,2026-10-14
+emlearn/emlearn,MIT,yes,edge-ml,From 2 kB flash and 50 bytes RAM with built-in anomaly detection. On a coin cell a 2 kB forest that lasts 5 years beats a 200 kB CNN that lasts 8 months,LICENSE,2026-10-14
+mit-han-lab/tinyengine,MIT,yes,edge-ml,MCUNet patch-based inference; real peak-memory wins but research-grade,LICENSE,2026-10-14
+apache/tvm,Apache-2.0,care,edge-ml,microTVM exists but it is a heavy toolchain for a three-person team,LICENSE,2026-10-14
+onnx/onnx,Apache-2.0,yes,ml-interchange,Model interchange between training and edge toolchains,LICENSE,2026-10-14
+microsoft/onnxruntime,MIT,yes,ml-serving,Cloud and gateway-side inference - not MCU,LICENSE,2026-10-14
+unit8co/darts,Apache-2.0,yes,cloud-ml,Forecasting plus anomaly scorers - the slow-leak and circuit-degradation detection that cannot run on a coin cell,LICENSE,2026-10-14
+nilmtk/nilmtk,Apache-2.0,yes,electrical-ml,The standard NILM evaluation harness; dataset converters for REDD/UK-DALE/REFIT,LICENSE,2026-10-14
+nilmtk/nilmtk-contrib,Apache-2.0,yes,electrical-ml,30+ disaggregation models including NILMFormer and PatchTST - unusually good licence hygiene for academic ML,LICENSE,2026-10-14
+nilmtk/nilm_metadata,Apache-2.0,yes,electrical-ml,Controlled appliance vocabulary and schema - steal this for your telemetry ontology instead of redesigning it twice,LICENSE,2026-10-14
+goruck/nilm,MIT,yes,electrical-ml,The most product-shaped NILM repo: quantised TFLite models running real time on a Pi with published accuracy,LICENSE,2026-10-14
+Virtsionis/torch-nilm,MIT,yes,electrical-ml,PyTorch NILM benchmarking toolkit; stale since 2023,LICENSE,2026-10-14
+WaterFutures/EPyT-Flow,MIT,yes,water-ml,Simulates leakages AND SENSOR FAULTS with uncertainty models - your labelled synthetic data factory including the false-alarm cases,LICENSE,2026-10-14
+WaterFutures/EPyT-Control,MIT,yes,water-ml,Control algorithms for smart water networks - applies to shutoff actuation policy and water hammer,LICENSE,2026-10-14
+WaterFutures/WaterBenchmarkHub,MIT,care,water-ml,Index over leak benchmarks. MIT wrapper around datasets with stricter individual terms - check each dataset not the wrapper,LICENSE,2026-10-14
+KIOS-Research/LeakDB,EUPL-1.2,no,water-ml,Leakage diagnosis benchmark. EUPL-1.2 IS COPYLEFT - most people read EU Public Licence as permissive. Use the WaterFutures family instead,LICENSE,2026-10-14
+KIOS-Research/BattLeDIM,EUPL-1.2,no,water-ml,Battle of the Leakage Detection and Isolation Methods - dataset generator and official scoring. EUPL copyleft; stale since 2022,LICENSE,2026-10-14
+KIOS-Research/EPyT,EUPL-1.2,no,water-ml,EPANET-Python Toolkit - EUPL regardless of which org hosts it. Only EPyT-Flow and EPyT-Control are MIT,LICENSE,2026-10-14
+OpenWaterAnalytics/EPANET,MIT,yes,water-ml,Industry-standard hydraulic solver as a C API - your physics ground truth,LICENSE,2026-10-14
+USEPA/WNTR,MIT,yes,water-ml,US EPA resilience tool that can inject pipe leaks; EPA authorship carries regulatory credibility,LICENSE.md,2026-10-14
+CircuitSetup/Expandable-6-Channel-ESP32-Energy-Meter,MIT,yes,reference-design,MIT HARDWARE AND FIRMWARE: 2x ATM90E32AS 6-channel metering stackable to 42 channels. Use this instead of IotaWatt or emonTx,LICENSE,2026-10-14
+boblemaire/IoTaWatt,GPL-3.0,no,reference-design,Good engineering but GPL-3.0 covers firmware AND the published hardware design,LICENSE,2026-10-14
+openenergymonitor/EmonLib,AGPL-3.0,no,reference-design,AGPL; and the emonPi hardware is CC-BY-SA so do not trace the layout either,LICENSE.txt,2026-10-14
+esphome/esphome,Split-GPLv3-MIT,no,reference-design,THE TRAP MOST HARDWARE STARTUPS HIT: device-side C++ is GPLv3 and only the Python generator is MIT. The GPL half is the half that ships,LICENSE,2026-10-14
+arendst/Tasmota,GPL-3.0,no,reference-design,Excellent sensor-driver reference; GPL-3.0-only so you cannot even relicense forward. Study only,LICENSE.txt,2026-10-14
+make-all/tuya-local,MIT,yes,reference-design,The one permissive Tuya local-control codebase; candid that battery sensors cannot be supported locally - which is why yours should be LoRaWAN or BLE,LICENSE.md,2026-10-14
+rospogrigio/localtuya,GPL-3.0,no,reference-design,Tuya protocol knowledge is useful; the code is GPL. Use tuya-local instead,LICENSE,2026-10-14
+Koenkk/zigbee2mqtt,GPL-3.0,no,reference-design,Best Zigbee device-quirk knowledge base anywhere. Reference only,LICENSE,2026-10-14
+meshtastic/firmware,GPL-3.0,no,reference-design,Useful SX126x know-how and a cheap field-test radio; not a product platform,LICENSE,2026-10-14
+RAKWireless/WisBlock,MIT,yes,reference-design,MIT example firmware for RAK4631 nRF52840+SX1262 including relay and motor-driver modules for valve actuation,LICENSE,2026-10-14
+RAKWireless/RUI3-Best-Practice,MIT,yes,reference-design,RAK's RUI3 patterns - low-power LoRaWAN node practice,LICENSE,2026-10-14
+openidl-org/openidl-data-specification,CommunitySpec-1.0,yes,insurance-schema,openIDS Homeowners v1.0 - royalty-free patent commitments and implementations are exempt from attribution so closed-source implementation is permitted,01-community_specification_license-v1.md,2026-10-14
+openidl-org/openidl-main,Apache-2.0,no,insurance-schema,Hyperledger-based data-call platform - 1 star and dormant since Dec 2023. Adopt the spec not the platform,LICENSE,2026-10-14

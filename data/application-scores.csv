@@ -1,0 +1,15 @@
+id,application,peril,bom_usd_est,capex_to_ship_usd,months_to_first_revenue,cert_burden_1to5,tech_risk_1to5,defensibility_1to5,gates_triggered,verdict
+A1,Clamp-on thermal whole-home leak sensor,water,22-35,31k-94k,6-9,1,2,3,FCC Part 15 only,START
+A2,Point/puck leak sensors + in-home hub,water,8-14,20k-50k,4-6,1,1,1,FCC Part 15 only,START
+A3,Multifamily in-suite leak network on a building gateway,water,10-18,25k-60k,5-8,1,2,4,FCC Part 15 only,START
+A4,Freeze and pipe-temperature risk monitoring,water,6-12,0-15k,3-5,1,1,2,FCC Part 15 (add-on to A1/A2),START
+A5,Sump pump and basement water monitoring,water,14-22,20k-45k,5-7,1,2,2,FCC Part 15 only,START
+A6,Resell/integrate a third-party certified shutoff valve,water,0 (resold),0-10k,3-6,0,1,1,None - vendor holds the listings,START
+A7,Advisory shutoff - monitored response with no actuator,water,0,0-20k,3-6,0,1,3,None,START
+A8,Insurer claims-triage and risk-scoring data product,both,0,0-25k,6-12,0,3,4,None - software only; SOC 2 is the real gate,START
+A9,Retrofit clamp-over-lever shutoff actuator,water,35-60,70k-231k,12-18,2,5,4,FCC; IAPMO scope probably N/A - get it in writing,SPIKE
+A10,Water sub-metering for condo/HOA cost allocation,water,45-90,60k-150k,9-15,4,3,3,Weights-and-measures + NSF 61/372 if inline,LATER
+A11,Panel-level electrical monitoring with NILM,electrical,45-80,60k-140k,9-15,3,4,3,FCC + NRTL (panel-adjacent) + electrician install,LATER
+A12,NEMA 5-15 metered LoRaWAN/cellular smart plug,electrical,18-30,80k-180k,12-18,4,3,4,FCC + UL 498 + UL 60730-1 - no NA product exists today,LATER
+A13,Inline motorised shutoff valve (own design),water,70-130,112k-366k,18-30,5,4,4,FCC + NRTL + IGC 115/349 + NSF 61/372 + cUPC,LATER
+A14,Plug-in electrical arc/fault detector,electrical,25-45,180k-560k,24-36,5,5,5,FCC + UL 498 + UL 60730-1 + UL 94; UL 1699 if it interrupts,AVOID-YEAR-1
