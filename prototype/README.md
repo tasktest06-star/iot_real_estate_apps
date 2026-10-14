@@ -108,10 +108,27 @@ Being blunt, because "production-ready prototype" is a contradiction worth namin
 - **Nothing here is certified.** FCC Part 15, the NRTL question and the IAPMO scope determination
   are unchanged by any amount of code, and they are the real cash constraint.
 
+## Alternative stacks
+
+This is one point in the design space, and the right one only for the multifamily buyer route.
+Four alternatives are worked out as design branches — see [`adr/README.md`](adr/README.md) for the
+comparison table:
+
+| Branch | Swaps | Unlocks |
+|---|---|---|
+| `design/lte-m-nbiot` | LoRaWAN → LTE-M/NB-IoT | insurer-mailed single-family (no gateway, works on arrival) |
+| `design/ble-thread-matter` | LoRaWAN → BLE + Thread/Matter | DTC retail |
+| `design/wifi-esp-idf` | Zephyr → ESP-IDF, LoRaWAN → Wi-Fi | mains-powered products |
+| `design/chirpstack-magistrala` | TTS → ChirpStack, FastAPI → Magistrala | nothing — it tests whether this architecture is portable |
+
+`detection/` is unchanged in all four, which is the property worth having: the detector is pure
+functions over a `Sample`, so it has no idea which radio delivered the bytes.
+
 ## Layout
 
 ```
 contracts/INTERFACES.md   the single source of truth (+ §11 amendments)
+adr/                      design branches: alternative radios and software stacks
 firmware/                 Zephyr app, 2 board targets, 4 unrun C test suites
 codec/                    Node LoRaWAN codec, zero deps
 simulator/                labelled synthetic fleet, 10 scenarios, stdlib
