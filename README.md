@@ -107,6 +107,7 @@ and Canada — where exactly one carrier offers it, in one province.
 | [slides/main.tex](slides/main.tex) | The same roadmap as an internal **engineering** deck (not an investor pitch). `make slides`. |
 | [prototype/](prototype/) | **A working end-to-end slice of the recommended wedge.** Zephyr firmware → LoRaWAN codec → simulated fleet → detection → insurer API → dashboard. 312 passing tests; `cd prototype && make e2e`. |
 | [10-product-family-architecture.md](10-product-family-architecture.md) | **How this platform extends to the other 13 applications.** Per-product architecture, effort, certification gate and sequencing — plus adjacent perils. |
+| [BRANCHES.md](BRANCHES.md) | **What each branch is, and why none of the four design branches are merged.** Per-branch detail, the comparison table, lifecycle and naming conventions. |
 
 The prototype is where the pack stops asserting and starts measuring, and it has already corrected
 two things in these documents: application **A4**'s "free upside" framing (§2.2 of
